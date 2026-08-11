@@ -1,0 +1,15 @@
+/target/
+/.env
+.env.*
+!.env.example
+/.hay-seeker/
+*.duckdb
+*.duckdb.wal
+*.checkpoint.json
+*.pem
+*.key
+*.profraw
+/.bench-repos/
+/.bench-assets/
+/.bench-tools/
+/benchmarks/gigatoken-rust/target/

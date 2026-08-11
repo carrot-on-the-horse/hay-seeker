@@ -1,0 +1,21 @@
+[package]
+name = "cast-tokenizers"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Pinned tokenizer-backed sizing adapters for CAST"
+
+[dependencies]
+cast-core.workspace = true
+tiktoken-rs.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "sizing"
+harness = false
+
+[lints]
+workspace = true

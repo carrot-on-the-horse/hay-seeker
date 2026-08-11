@@ -1,0 +1,21 @@
+{
+  "database": {
+    "provider": "duckdb"
+  },
+  "embedding": {
+    "provider": "openai",
+    "model": "text-embedding-3-small",
+    "api_key": "benchmark-loopback-only",
+    "base_url": "http://127.0.0.1:11435/v1",
+    "output_dims": 256,
+    "timeout": 30,
+    "max_retries": 3
+  },
+  "indexing": {
+    "exclude_mode": "gitignore_only",
+    "max_file_size_mb": 5,
+    "config_file_size_threshold_kb": 50,
+    "per_file_timeout_seconds": 0,
+    "detect_embedded_sql": false
+  }
+}

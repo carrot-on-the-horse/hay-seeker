@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "model_id": "Snowflake/snowflake-arctic-embed-m-v2.0",
+  "model_revision": "95c2741480856aa9666782eb4afe11959938017f;onnx/model_int8.onnx",
+  "model_file": "model_int8.onnx",
+  "tokenizer_file": "tokenizer.json",
+  "artifacts": [
+    {
+      "path": "model_int8.onnx",
+      "sha256": "03d923bb1850ebdccb068e2f3abd8aa43fe81c50d07d037ef103fe3d0fb78e3b"
+    },
+    {
+      "path": "tokenizer.json",
+      "sha256": "f1cc44ad7faaeec47241864835473fd5403f2da94673f3f764a77ebcb0a803ec"
+    }
+  ],
+  "input_ids_name": "input_ids",
+  "attention_mask_name": "attention_mask",
+  "output_name": "sentence_embedding",
+  "output_transform": "final_pooled",
+  "core_ml_compatible": false,
+  "max_length": 256,
+  "document_window_overlap_tokens": 32,
+  "document_aggregation": "token_weighted_mean_windows",
+  "base_dimensions": 768,
+  "embedding_profile": "snowflake-arctic-embed-m-v2.0-query-cls-max256-doc-window256-stride224-token-mean-mrl-v1",
+  "document_prefix": "",
+  "query_prefix": "query: "
+}

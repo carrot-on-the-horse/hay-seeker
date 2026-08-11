@@ -1,0 +1,31 @@
+[package]
+name = "hay-search"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Backend-neutral contracts and Phase 0 harness support for embedded hybrid search"
+
+[features]
+default = ["phase0"]
+phase0 = []
+
+[dependencies]
+async-trait.workspace = true
+cast-core.workspace = true
+cast-index.workspace = true
+cast-tokenizers.workspace = true
+cast-tree-sitter.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+futures.workspace = true
+
+[[bench]]
+name = "repository_chunking"
+harness = false
+
+[lints]
+workspace = true

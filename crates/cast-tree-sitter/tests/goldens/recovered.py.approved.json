@@ -1,0 +1,227 @@
+{
+  "schema_version": 1,
+  "algorithm_version": "cast-rust-0.1",
+  "chunks": [
+    {
+      "ordinal": 0,
+      "text": "# Synthetic recovery fixture: the missing colon is intentional.\n",
+      "core_range": {
+        "start_byte": 0,
+        "end_byte": 64,
+        "start": {
+          "line": 1,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 2,
+          "byte_column": 0
+        }
+      },
+      "context_range": {
+        "start_byte": 0,
+        "end_byte": 64,
+        "start": {
+          "line": 1,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 2,
+          "byte_column": 0
+        }
+      },
+      "measured_size": 11,
+      "language": "python",
+      "node_kinds": [
+        "comment"
+      ],
+      "quality": {
+        "recovered_parse": true,
+        "degraded_split": false
+      }
+    },
+    {
+      "ordinal": 1,
+      "text": "class RepositoryIndexer:\n    ",
+      "core_range": {
+        "start_byte": 64,
+        "end_byte": 93,
+        "start": {
+          "line": 2,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 3,
+          "byte_column": 4
+        }
+      },
+      "context_range": {
+        "start_byte": 64,
+        "end_byte": 93,
+        "start": {
+          "line": 2,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 3,
+          "byte_column": 4
+        }
+      },
+      "measured_size": 5,
+      "language": "python",
+      "node_kinds": [
+        "identifier"
+      ],
+      "quality": {
+        "recovered_parse": true,
+        "degraded_split": false
+      }
+    },
+    {
+      "ordinal": 2,
+      "text": "def __init__(self, embedder):\n        self.embedder = embedder\n\n    ",
+      "core_range": {
+        "start_byte": 93,
+        "end_byte": 161,
+        "start": {
+          "line": 3,
+          "byte_column": 4
+        },
+        "end": {
+          "line": 6,
+          "byte_column": 4
+        }
+      },
+      "context_range": {
+        "start_byte": 93,
+        "end_byte": 161,
+        "start": {
+          "line": 3,
+          "byte_column": 4
+        },
+        "end": {
+          "line": 6,
+          "byte_column": 4
+        }
+      },
+      "measured_size": 18,
+      "language": "python",
+      "node_kinds": [
+        "assignment",
+        "attribute",
+        "block",
+        "expression_statement",
+        "function_definition",
+        "identifier",
+        "parameters"
+      ],
+      "quality": {
+        "recovered_parse": true,
+        "degraded_split": false
+      }
+    },
+    {
+      "ordinal": 3,
+      "text": "def index(self, documents):\n        vectors = []\n        for document in documents\n            vectors.append(self.embedder.embed(document))\n        return vectors\n\n    ",
+      "core_range": {
+        "start_byte": 161,
+        "end_byte": 330,
+        "start": {
+          "line": 6,
+          "byte_column": 4
+        },
+        "end": {
+          "line": 12,
+          "byte_column": 4
+        }
+      },
+      "context_range": {
+        "start_byte": 161,
+        "end_byte": 330,
+        "start": {
+          "line": 6,
+          "byte_column": 4
+        },
+        "end": {
+          "line": 12,
+          "byte_column": 4
+        }
+      },
+      "measured_size": 30,
+      "language": "python",
+      "node_kinds": [
+        "ERROR",
+        "argument_list",
+        "assignment",
+        "attribute",
+        "block",
+        "call",
+        "expression_statement",
+        "function_definition",
+        "identifier",
+        "list",
+        "parameters"
+      ],
+      "quality": {
+        "recovered_parse": true,
+        "degraded_split": false
+      }
+    },
+    {
+      "ordinal": 4,
+      "text": "def count(self, documents):\n        return len(documents)\n",
+      "core_range": {
+        "start_byte": 330,
+        "end_byte": 388,
+        "start": {
+          "line": 12,
+          "byte_column": 4
+        },
+        "end": {
+          "line": 14,
+          "byte_column": 0
+        }
+      },
+      "context_range": {
+        "start_byte": 330,
+        "end_byte": 388,
+        "start": {
+          "line": 12,
+          "byte_column": 4
+        },
+        "end": {
+          "line": 14,
+          "byte_column": 0
+        }
+      },
+      "measured_size": 12,
+      "language": "python",
+      "node_kinds": [
+        "argument_list",
+        "block",
+        "call",
+        "function_definition",
+        "identifier",
+        "parameters",
+        "return_statement"
+      ],
+      "quality": {
+        "recovered_parse": true,
+        "degraded_split": false
+      }
+    }
+  ],
+  "language": {
+    "language": "python",
+    "method": "extension"
+  },
+  "strategy": "ast",
+  "sizer": "openai:o200k_base:tiktoken-rs@0.12.0:sha256:446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d",
+  "diagnostics": [
+    {
+      "code": "recovered_parse",
+      "severity": "warning",
+      "message": "Tree-sitter recovered with 2 error nodes and 0 missing nodes",
+      "range": null
+    }
+  ]
+}

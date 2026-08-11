@@ -1,0 +1,315 @@
+{
+  "schema_version": 1,
+  "algorithm_version": "cast-rust-0.1",
+  "chunks": [
+    {
+      "ordinal": 0,
+      "text": "// Synthetic route fixture for CAST approval testing.\npackage server\n\ntype Handler func(string) string\n\ntype Router struct {\n\troutes map[string]Handler\n}\n\n",
+      "core_range": {
+        "start_byte": 0,
+        "end_byte": 155,
+        "start": {
+          "line": 1,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 10,
+          "byte_column": 0
+        }
+      },
+      "context_range": {
+        "start_byte": 0,
+        "end_byte": 155,
+        "start": {
+          "line": 1,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 10,
+          "byte_column": 0
+        }
+      },
+      "measured_size": 31,
+      "language": "go",
+      "node_kinds": [
+        "comment",
+        "field_declaration",
+        "field_declaration_list",
+        "field_identifier",
+        "function_type",
+        "map_type",
+        "package_clause",
+        "package_identifier",
+        "parameter_declaration",
+        "parameter_list",
+        "struct_type",
+        "type_declaration",
+        "type_identifier",
+        "type_spec"
+      ],
+      "quality": {
+        "recovered_parse": false,
+        "degraded_split": false
+      }
+    },
+    {
+      "ordinal": 1,
+      "text": "func NewRouter() *Router {\n\treturn &Router{routes: make(map[string]Handler)}\n}\n\n",
+      "core_range": {
+        "start_byte": 155,
+        "end_byte": 235,
+        "start": {
+          "line": 10,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 14,
+          "byte_column": 0
+        }
+      },
+      "context_range": {
+        "start_byte": 155,
+        "end_byte": 235,
+        "start": {
+          "line": 10,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 14,
+          "byte_column": 0
+        }
+      },
+      "measured_size": 20,
+      "language": "go",
+      "node_kinds": [
+        "argument_list",
+        "block",
+        "call_expression",
+        "composite_literal",
+        "expression_list",
+        "function_declaration",
+        "identifier",
+        "keyed_element",
+        "literal_element",
+        "literal_value",
+        "map_type",
+        "parameter_list",
+        "pointer_type",
+        "return_statement",
+        "statement_list",
+        "type_identifier",
+        "unary_expression"
+      ],
+      "quality": {
+        "recovered_parse": false,
+        "degraded_split": false
+      }
+    },
+    {
+      "ordinal": 2,
+      "text": "func (router *Router) Register(method string, path string, handler Handler) {\n\trouter.routes[method+\" \"+path] = handler\n}\n\n",
+      "core_range": {
+        "start_byte": 235,
+        "end_byte": 358,
+        "start": {
+          "line": 14,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 18,
+          "byte_column": 0
+        }
+      },
+      "context_range": {
+        "start_byte": 235,
+        "end_byte": 358,
+        "start": {
+          "line": 14,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 18,
+          "byte_column": 0
+        }
+      },
+      "measured_size": 29,
+      "language": "go",
+      "node_kinds": [
+        "assignment_statement",
+        "binary_expression",
+        "block",
+        "expression_list",
+        "field_identifier",
+        "identifier",
+        "index_expression",
+        "interpreted_string_literal",
+        "interpreted_string_literal_content",
+        "method_declaration",
+        "parameter_declaration",
+        "parameter_list",
+        "pointer_type",
+        "selector_expression",
+        "statement_list",
+        "type_identifier"
+      ],
+      "quality": {
+        "recovered_parse": false,
+        "degraded_split": false
+      }
+    },
+    {
+      "ordinal": 3,
+      "text": "func RegisterAPIRoutes(router *Router) {\n\trouter.Register(\"GET\", \"/health\", health)\n\trouter.Register(\"POST\", \"/generate\", generate)\n}\n\n",
+      "core_range": {
+        "start_byte": 358,
+        "end_byte": 493,
+        "start": {
+          "line": 18,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 23,
+          "byte_column": 0
+        }
+      },
+      "context_range": {
+        "start_byte": 358,
+        "end_byte": 493,
+        "start": {
+          "line": 18,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 23,
+          "byte_column": 0
+        }
+      },
+      "measured_size": 31,
+      "language": "go",
+      "node_kinds": [
+        "argument_list",
+        "block",
+        "call_expression",
+        "expression_statement",
+        "field_identifier",
+        "function_declaration",
+        "identifier",
+        "interpreted_string_literal",
+        "interpreted_string_literal_content",
+        "parameter_declaration",
+        "parameter_list",
+        "pointer_type",
+        "selector_expression",
+        "statement_list",
+        "type_identifier"
+      ],
+      "quality": {
+        "recovered_parse": false,
+        "degraded_split": false
+      }
+    },
+    {
+      "ordinal": 4,
+      "text": "func health(_ string) string {\n\treturn \"ok\"\n}\n\n",
+      "core_range": {
+        "start_byte": 493,
+        "end_byte": 540,
+        "start": {
+          "line": 23,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 27,
+          "byte_column": 0
+        }
+      },
+      "context_range": {
+        "start_byte": 493,
+        "end_byte": 540,
+        "start": {
+          "line": 23,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 27,
+          "byte_column": 0
+        }
+      },
+      "measured_size": 12,
+      "language": "go",
+      "node_kinds": [
+        "block",
+        "expression_list",
+        "function_declaration",
+        "identifier",
+        "interpreted_string_literal",
+        "interpreted_string_literal_content",
+        "parameter_declaration",
+        "parameter_list",
+        "return_statement",
+        "statement_list",
+        "type_identifier"
+      ],
+      "quality": {
+        "recovered_parse": false,
+        "degraded_split": false
+      }
+    },
+    {
+      "ordinal": 5,
+      "text": "func generate(prompt string) string {\n\tif prompt == \"\" {\n\t\treturn \"missing prompt\"\n\t}\n\treturn \"generated: \" + prompt\n}\n",
+      "core_range": {
+        "start_byte": 540,
+        "end_byte": 659,
+        "start": {
+          "line": 27,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 33,
+          "byte_column": 0
+        }
+      },
+      "context_range": {
+        "start_byte": 540,
+        "end_byte": 659,
+        "start": {
+          "line": 27,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 33,
+          "byte_column": 0
+        }
+      },
+      "measured_size": 29,
+      "language": "go",
+      "node_kinds": [
+        "binary_expression",
+        "block",
+        "expression_list",
+        "function_declaration",
+        "identifier",
+        "if_statement",
+        "interpreted_string_literal",
+        "interpreted_string_literal_content",
+        "parameter_declaration",
+        "parameter_list",
+        "return_statement",
+        "statement_list",
+        "type_identifier"
+      ],
+      "quality": {
+        "recovered_parse": false,
+        "degraded_split": false
+      }
+    }
+  ],
+  "language": {
+    "language": "go",
+    "method": "extension"
+  },
+  "strategy": "ast",
+  "sizer": "openai:o200k_base:tiktoken-rs@0.12.0:sha256:446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d",
+  "diagnostics": []
+}

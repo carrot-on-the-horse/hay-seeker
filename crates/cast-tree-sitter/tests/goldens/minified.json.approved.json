@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "algorithm_version": "cast-rust-0.1",
+  "chunks": [
+    {
+      "ordinal": 0,
+      "text": "{\"service\":\"hay-seeker\",\"routes\":[{\"method\":\"GET\",\"path\":\"/health\",\"handler\":\"health\"},{\"method\":\"POST\",\"path\":\"/generate\",\"handler\":\"generate\"},{\"method\":\"POST\",\"",
+      "core_range": {
+        "start_byte": 0,
+        "end_byte": 163,
+        "start": {
+          "line": 1,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 1,
+          "byte_column": 163
+        }
+      },
+      "context_range": {
+        "start_byte": 0,
+        "end_byte": 163,
+        "start": {
+          "line": 1,
+          "byte_column": 0
+        },
+        "end": {
+          "line": 1,
+          "byte_column": 163
+        }
+      },
+      "measured_size": 40,
+      "language": "generic",
+      "node_kinds": [
+        "generic"
+      ],
+      "quality": {
+        "recovered_parse": false,
+        "degraded_split": false
+      }
+    },
+    {
+      "ordinal": 1,
+      "text": "path\":\"/chat\",\"handler\":\"chat\"}],\"features\":{\"lexical\":true,\"dense\":true,\"late_interaction\":false},\"limits\":{\"chunk_tokens\":1500,\"chunk_bytes\":",
+      "core_range": {
+        "start_byte": 163,
+        "end_byte": 306,
+        "start": {
+          "line": 1,
+          "byte_column": 163
+        },
+        "end": {
+          "line": 1,
+          "byte_column": 306
+        }
+      },
+      "context_range": {
+        "start_byte": 163,
+        "end_byte": 306,
+        "start": {
+          "line": 1,
+          "byte_column": 163
+        },
+        "end": {
+          "line": 1,
+          "byte_column": 306
+        }
+      },
+      "measured_size": 38,
+      "language": "generic",
+      "node_kinds": [
+        "generic"
+      ],
+      "quality": {
+        "recovered_parse": false,
+        "degraded_split": false
+      }
+    },
+    {
+      "ordinal": 2,
+      "text": "25000,\"workers\":8},\"languages\":[\"rust\",\"go\",\"python\",\"typescript\",\"php\",\"java\",\"ruby\",\"c\",\"cpp\",\"csharp\",\"bash\"]}\n",
+      "core_range": {
+        "start_byte": 306,
+        "end_byte": 420,
+        "start": {
+          "line": 1,
+          "byte_column": 306
+        },
+        "end": {
+          "line": 2,
+          "byte_column": 0
+        }
+      },
+      "context_range": {
+        "start_byte": 306,
+        "end_byte": 420,
+        "start": {
+          "line": 1,
+          "byte_column": 306
+        },
+        "end": {
+          "line": 2,
+          "byte_column": 0
+        }
+      },
+      "measured_size": 32,
+      "language": "generic",
+      "node_kinds": [
+        "generic"
+      ],
+      "quality": {
+        "recovered_parse": false,
+        "degraded_split": false
+      }
+    }
+  ],
+  "language": {
+    "language": "generic",
+    "method": "generic_fallback"
+  },
+  "strategy": "generic",
+  "sizer": "openai:o200k_base:tiktoken-rs@0.12.0:sha256:446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d",
+  "diagnostics": [
+    {
+      "code": "generic_fallback",
+      "severity": "warning",
+      "message": "no compiled grammar matched; generic UTF-8 chunking was used",
+      "range": null
+    }
+  ]
+}

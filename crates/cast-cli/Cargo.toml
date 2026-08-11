@@ -1,0 +1,21 @@
+[package]
+name = "cast-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Reference CLI for CAST semantic chunking"
+
+[[bin]]
+name = "cast"
+path = "src/main.rs"
+
+[dependencies]
+cast-core.workspace = true
+cast-tokenizers.workspace = true
+cast-tree-sitter.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,40 @@
+[package]
+name = "cast-embeddings"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Embedding provider adapters for CAST indexing"
+
+[dependencies]
+cast-index.workspace = true
+futures.workspace = true
+half.workspace = true
+reqwest.workspace = true
+safetensors.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokenizers.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+dispatch2.workspace = true
+ort = { version = "=2.0.0-rc.12", default-features = false, features = ["std", "ndarray", "download-binaries", "tls-rustls", "coreml"] }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+ort = { version = "=2.0.0-rc.12", default-features = false, features = ["std", "ndarray", "download-binaries", "tls-rustls"] }
+
+[dev-dependencies]
+cast-core.workspace = true
+criterion.workspace = true
+dotenvy.workspace = true
+hay-search.workspace = true
+
+[[bench]]
+name = "local_encode"
+harness = false
+
+[lints]
+workspace = true

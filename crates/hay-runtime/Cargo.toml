@@ -1,0 +1,20 @@
+[package]
+name = "hay-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Shared embedding and manifest runtime for Hay Seeker executables"
+
+[dependencies]
+anyhow.workspace = true
+cast-embeddings.workspace = true
+cast-index.workspace = true
+hay-search.workspace = true
+ring.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+
+[lints]
+workspace = true

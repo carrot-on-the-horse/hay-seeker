@@ -1,0 +1,12 @@
+title = "Hay Seeker secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Pinned public GigaToken Git revision, not a credential"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''^scripts/bench-tokenizers\.sh$''']
+regexes = ['''gigatoken_revision="fac0114b37120ec8a76362e9ee8e1c742aaafaef"''']

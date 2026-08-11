@@ -1,0 +1,30 @@
+[package]
+name = "hay-duckdb"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Durable embedded DuckDB backend for Hay Seeker hybrid search"
+
+[dependencies]
+async-trait.workspace = true
+cast-core.workspace = true
+cast-index.workspace = true
+duckdb.workspace = true
+futures.workspace = true
+hay-search.workspace = true
+ring.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+tempfile.workspace = true
+tokio.workspace = true
+
+[[bench]]
+name = "dense_scan"
+harness = false
+
+[lints]
+workspace = true

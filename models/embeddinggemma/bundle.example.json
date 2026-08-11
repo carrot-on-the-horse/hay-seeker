@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "model_id": "google/embeddinggemma-300m",
+  "model_revision": "REPLACE_WITH_UPSTREAM_COMMIT_AND_EXPORT_REVISION",
+  "model_file": "model.onnx",
+  "tokenizer_file": "tokenizer.json",
+  "artifacts": [
+    {
+      "path": "model.onnx",
+      "sha256": "REPLACE_WITH_LOWERCASE_SHA256"
+    },
+    {
+      "path": "tokenizer.json",
+      "sha256": "REPLACE_WITH_LOWERCASE_SHA256"
+    }
+  ],
+  "input_ids_name": "input_ids",
+  "attention_mask_name": "attention_mask",
+  "output_name": "sentence_embedding",
+  "max_length": 2048,
+  "base_dimensions": 768,
+  "document_prefix": "title: none | text: ",
+  "query_prefix": "task: code retrieval | query: "
+}

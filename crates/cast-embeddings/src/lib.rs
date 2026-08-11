@@ -1,0 +1,47 @@
+#![forbid(unsafe_code)]
+#![deny(missing_docs)]
+//! Provider-neutral embedding adapters for CAST indexing.
+//!
+//! Constructors validate credentials and model settings without sending a
+//! request; embedding calls remain behind the common [`cast_index::Embedder`]
+//! contract.
+//!
+//! ```
+//! use cast_embeddings::{OpenAiEmbeddings, OpenAiEmbeddingsConfig};
+//! use cast_index::Embedder;
+//!
+//! let embedder = OpenAiEmbeddings::new(OpenAiEmbeddingsConfig::new("test-key"))?;
+//! assert_eq!(embedder.identity().provider, "openai");
+//! # Ok::<(), cast_embeddings::RemoteEmbeddingConfigError>(())
+//! ```
+
+mod cloudflare_vertex_gemini;
+mod cloudflare_workers_ai;
+mod http;
+mod local_onnx;
+mod local_static;
+mod openai;
+mod retry;
+mod voyage;
+
+pub use cloudflare_vertex_gemini::{
+    CloudflareVertexGemini2, CloudflareVertexGemini2Config, GeminiConfigError,
+};
+pub use cloudflare_workers_ai::{
+    CLOUDFLARE_WORKERS_AI_MODEL, CloudflareWorkersAiEmbeddings, CloudflareWorkersAiEmbeddingsConfig,
+};
+pub use http::RemoteEmbeddingConfigError;
+pub use local_onnx::{
+    LocalExecutionProvider, LocalOnnxConfig, LocalOnnxEmbedder, LocalOnnxError,
+    STATIC_RETRIEVAL_MRL_EN_V1_PROFILE,
+};
+pub use local_static::{
+    LocalStaticConfig, LocalStaticEmbedder, LocalStaticError, POTION_CODE_16M_V2_PROFILE,
+};
+pub use openai::{
+    OPENAI_DEFAULT_MODEL, OPENAI_EMBEDDINGS_ENDPOINT, OpenAiEmbeddings, OpenAiEmbeddingsConfig,
+};
+pub use retry::{RetryPolicy, RetryPolicyError, RetryingEmbedder};
+pub use voyage::{
+    VOYAGE_DEFAULT_MODEL, VOYAGE_EMBEDDINGS_ENDPOINT, VoyageEmbeddings, VoyageEmbeddingsConfig,
+};

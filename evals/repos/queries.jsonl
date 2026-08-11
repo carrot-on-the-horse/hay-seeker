@@ -1,0 +1,40 @@
+{"query":"Where does WordPress parse and execute the main post query?","graded_doc_ids":{"wordpress:src/wp-includes/class-wp-query.php":3}}
+{"query":"How does the WordPress REST API dispatch requests to registered routes?","graded_doc_ids":{"wordpress:src/wp-includes/rest-api/class-wp-rest-server.php":3}}
+{"query":"Where is the WordPress outbound HTTP request API implemented?","graded_doc_ids":{"wordpress:src/wp-includes/class-wp-http.php":3}}
+{"query":"How does WordPress run callbacks registered on an action or filter hook?","graded_doc_ids":{"wordpress:src/wp-includes/class-wp-hook.php":3}}
+{"query":"Where are WordPress users created and updated?","graded_doc_ids":{"wordpress:src/wp-includes/user.php":3}}
+{"query":"Which WordPress code inserts and updates posts?","graded_doc_ids":{"wordpress:src/wp-includes/post.php":3}}
+{"query":"Where does WordPress read and update site options?","graded_doc_ids":{"wordpress:src/wp-includes/option.php":3}}
+{"query":"How are WordPress taxonomies and terms registered?","graded_doc_ids":{"wordpress:src/wp-includes/taxonomy.php":3}}
+{"query":"Where are WordPress permalink rewrite rules generated?","graded_doc_ids":{"wordpress:src/wp-includes/rewrite.php":3}}
+{"query":"How does the WordPress admin activate and deactivate plugins?","graded_doc_ids":{"wordpress:src/wp-admin/includes/plugin.php":3}}
+{"query":"Where does Django QuerySet construct and execute database queries?","graded_doc_ids":{"django:django/db/models/query.py":3}}
+{"query":"How does Django build the middleware request response chain?","graded_doc_ids":{"django:django/core/handlers/base.py":3}}
+{"query":"Where is Django CSRF request validation implemented?","graded_doc_ids":{"django:django/middleware/csrf.py":3}}
+{"query":"Which Django models implement users groups and permissions?","graded_doc_ids":{"django:django/contrib/auth/models.py":3}}
+{"query":"How does Django resolve a URL path to a view?","graded_doc_ids":{"django:django/urls/resolvers.py":3}}
+{"query":"Where does Django perform form validation and collect field errors?","graded_doc_ids":{"django:django/forms/forms.py":3}}
+{"query":"How are streaming and regular HTTP responses represented in Django?","graded_doc_ids":{"django:django/http/response.py":3}}
+{"query":"Where is Django's base class-based view dispatch implemented?","graded_doc_ids":{"django:django/views/generic/base.py":3}}
+{"query":"What interface must a Django cache backend implement?","graded_doc_ids":{"django:django/core/cache/backends/base.py":3}}
+{"query":"How does Django apply and unapply a migration plan?","graded_doc_ids":{"django:django/db/migrations/executor.py":3}}
+{"query":"Where does the Kubernetes scheduler select and bind nodes for pods?","graded_doc_ids":{"kubernetes:pkg/scheduler/scheduler.go":3}}
+{"query":"Where is the main Kubernetes kubelet lifecycle implemented?","graded_doc_ids":{"kubernetes:pkg/kubelet/kubelet.go":3}}
+{"query":"How does the Kubernetes deployment controller reconcile deployments?","graded_doc_ids":{"kubernetes:pkg/controller/deployment/deployment_controller.go":3}}
+{"query":"Where is the Kubernetes API server configuration assembled?","graded_doc_ids":{"kubernetes:staging/src/k8s.io/apiserver/pkg/server/config.go":3,"kubernetes:cmd/kube-apiserver/app/server.go":2}}
+{"query":"How does client-go Reflector watch resources and populate a store?","graded_doc_ids":{"kubernetes:staging/src/k8s.io/client-go/tools/cache/reflector.go":3}}
+{"query":"Where does kube-apiserver construct and run its server chain?","graded_doc_ids":{"kubernetes:cmd/kube-apiserver/app/server.go":3,"kubernetes:staging/src/k8s.io/apiserver/pkg/server/config.go":1}}
+{"query":"Which Kubernetes pod registry strategy validates pod creation and updates?","graded_doc_ids":{"kubernetes:pkg/registry/core/pod/strategy.go":3}}
+{"query":"How does kubelet create and manage its container manager?","graded_doc_ids":{"kubernetes:pkg/kubelet/cm/container_manager_linux.go":3}}
+{"query":"Where does Kubernetes register runtime types and conversion functions in a Scheme?","graded_doc_ids":{"kubernetes:staging/src/k8s.io/apimachinery/pkg/runtime/scheme.go":3}}
+{"query":"How does the Kubernetes deployment controller handle replica set scaling?","graded_doc_ids":{"kubernetes:pkg/controller/deployment/deployment_controller.go":3}}
+{"query":"Where are Ollama HTTP routes and handlers registered?","graded_doc_ids":{"ollama:server/routes.go":3}}
+{"query":"How does Ollama represent and load a model on the server?","graded_doc_ids":{"ollama:server/model.go":3}}
+{"query":"Where does Ollama launch and communicate with an LLM runner server?","graded_doc_ids":{"ollama:llm/server.go":3}}
+{"query":"Which Ollama types define generate chat and embedding API requests?","graded_doc_ids":{"ollama:api/types.go":3}}
+{"query":"Where are Ollama command-line commands and flags assembled?","graded_doc_ids":{"ollama:cmd/cmd.go":3}}
+{"query":"How does Ollama discover available GPU hardware and memory?","graded_doc_ids":{"ollama:discover/gpu.go":3}}
+{"query":"Where does Ollama schedule model runners and unload idle models?","graded_doc_ids":{"ollama:server/sched.go":3}}
+{"query":"How does Ollama create copy and delete model manifests?","graded_doc_ids":{"ollama:server/images.go":3}}
+{"query":"Where does Ollama convert external model formats?","graded_doc_ids":{"ollama:convert/convert.go":3}}
+{"query":"How does Ollama handle generate and chat API endpoints?","graded_doc_ids":{"ollama:server/routes.go":3,"ollama:api/types.go":1}}

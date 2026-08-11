@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "model_id": "nomic-ai/nomic-embed-text-v1.5",
+  "model_revision": "1ef9b3e52d22d5957a7ca765fd83c68c3bffa91b;onnx/model_quantized.onnx",
+  "model_file": "model_quantized.onnx",
+  "tokenizer_file": "tokenizer.json",
+  "artifacts": [
+    {
+      "path": "model_quantized.onnx",
+      "sha256": "b4342336debaea79de872370664b0aaeb67dea4605513d00ee236ea871a81f27"
+    },
+    {
+      "path": "tokenizer.json",
+      "sha256": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66"
+    }
+  ],
+  "input_ids_name": "input_ids",
+  "attention_mask_name": "attention_mask",
+  "token_type_ids_name": "token_type_ids",
+  "output_name": "last_hidden_state",
+  "output_transform": "mean_pool_layer_norm",
+  "core_ml_compatible": false,
+  "max_length": 2048,
+  "base_dimensions": 768,
+  "embedding_profile": "nomic-embed-text-v1.5-search-mean-layernorm-mrl-v1",
+  "document_prefix": "search_document: ",
+  "query_prefix": "search_query: "
+}

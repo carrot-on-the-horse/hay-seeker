@@ -1,0 +1,23 @@
+[package]
+name = "hay-elasticsearch"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Elasticsearch backend for Hay Seeker hybrid search"
+
+[dependencies]
+async-trait.workspace = true
+cast-core.workspace = true
+cast-index.workspace = true
+futures.workspace = true
+hay-search.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "repositories": [
+    {
+      "id": "wordpress",
+      "url": "https://github.com/WordPress/wordpress-develop.git",
+      "revision": "7b887ba4820e0ee87bbf3f14a0e8385b33f1a6fd",
+      "directory": "wordpress"
+    },
+    {
+      "id": "django",
+      "url": "https://github.com/django/django.git",
+      "revision": "dfc52e53f1d19a2730854d68b602fb4dba8bf0c5",
+      "directory": "django"
+    },
+    {
+      "id": "kubernetes",
+      "url": "https://github.com/kubernetes/kubernetes.git",
+      "revision": "4f5591ab57b75c0b8cabbff3031c9b956075c1ed",
+      "directory": "kubernetes"
+    },
+    {
+      "id": "ollama",
+      "url": "https://github.com/ollama/ollama.git",
+      "revision": "144893850fa778c8c81ff931f26614d62e6689c1",
+      "directory": "ollama"
+    }
+  ]
+}

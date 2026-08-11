@@ -1,0 +1,18 @@
+[package]
+name = "cast-index"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Runtime-agnostic contracts for repository-scale CAST indexing"
+
+[dependencies]
+cast-core.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+syn.workspace = true
+
+[lints]
+workspace = true
