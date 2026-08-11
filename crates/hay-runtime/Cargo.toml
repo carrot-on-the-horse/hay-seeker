@@ -12,6 +12,7 @@ description = "Shared embedding and manifest runtime for Hay Seeker executables"
 anyhow.workspace = true
 cast-embeddings.workspace = true
 cast-index.workspace = true
+dotenvy.workspace = true
 hay-search.workspace = true
 ring.workspace = true
 

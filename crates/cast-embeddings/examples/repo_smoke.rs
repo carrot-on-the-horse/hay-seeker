@@ -99,9 +99,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn embedder_from_env() -> Result<CloudflareVertexGemini2, Box<dyn std::error::Error>> {
-    let token = env::var("CF_AIG_TOKEN")?;
+    let token = env::var("COTH_HAY_SEEKER_CF_AIG_TOKEN")?;
     if token.trim().is_empty() {
-        return Err("CF_AIG_TOKEN is empty".into());
+        return Err("COTH_HAY_SEEKER_CF_AIG_TOKEN is empty".into());
     }
     let endpoint = env::var("GEMINI_GATEWAY_URL")?;
     let mut config = CloudflareVertexGemini2Config::new(endpoint, token);

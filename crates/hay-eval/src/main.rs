@@ -15,7 +15,8 @@ use clap::{Parser, ValueEnum};
 use hay_duckdb::DuckDbIndex;
 use hay_elasticsearch::{ElasticsearchConfig, ElasticsearchIndex};
 use hay_runtime::{
-    BackendParityRuntime, EmbeddingProvider, SearchRuntime, StorageBackend, validate_backend_parity,
+    BackendParityRuntime, EmbeddingProvider, SearchRuntime, StorageBackend, load_dotenv,
+    validate_backend_parity,
 };
 use hay_search::{
     Candidate, Chunker, ChunkerV1, CorpusDocument, DeterministicPhase0Retriever, FdeParams,
@@ -198,7 +199,7 @@ impl LoadedDocuments {
 #[tokio::main]
 #[allow(clippy::too_many_lines)]
 async fn main() -> Result<()> {
-    let _ = dotenvy::dotenv();
+    load_dotenv()?;
     let arguments = Arguments::parse();
     if arguments.reuse_duckdb_index && !matches!(arguments.backend, Backend::Duckdb) {
         bail!("--reuse-duckdb-index requires --backend duckdb");

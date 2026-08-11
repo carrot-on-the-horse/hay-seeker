@@ -5,10 +5,14 @@ use cast_embeddings::{CloudflareVertexGemini2, CloudflareVertexGemini2Config};
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = dotenvy::dotenv();
-    let token = env::var("CF_AIG_TOKEN")
-        .map_err(|_| "CF_AIG_TOKEN is missing; add the Cloudflare Gateway token to .env")?;
+    let token = env::var("COTH_HAY_SEEKER_CF_AIG_TOKEN").map_err(
+        |_| "COTH_HAY_SEEKER_CF_AIG_TOKEN is missing; add the Cloudflare Gateway token to .env",
+    )?;
     if token.trim().is_empty() {
-        return Err("CF_AIG_TOKEN is empty; add the Cloudflare Gateway token to .env".into());
+        return Err(
+            "COTH_HAY_SEEKER_CF_AIG_TOKEN is empty; add the Cloudflare Gateway token to .env"
+                .into(),
+        );
     }
     let endpoint = env::var("GEMINI_GATEWAY_URL")
         .map_err(|_| "GEMINI_GATEWAY_URL is missing; add the complete gateway route to .env")?;
