@@ -4,6 +4,8 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+repository.workspace = true
+readme.workspace = true
 description = "MCP stdio adapter for the backend-neutral Hay Seeker search contract"
 
 [features]

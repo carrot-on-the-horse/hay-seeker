@@ -23,15 +23,16 @@ edition = "2024"
 rust-version = "1.85"
 license = "MIT"
 repository = "https://github.com/carrot-on-the-horse/hay-seeker"
+readme = "README.md"
 
 [workspace.dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-cast-core = { path = "crates/cast-core" }
-cast-embeddings = { path = "crates/cast-embeddings" }
-cast-index = { path = "crates/cast-index" }
-cast-tokenizers = { path = "crates/cast-tokenizers" }
-cast-tree-sitter = { path = "crates/cast-tree-sitter" }
+cast-core = { path = "crates/cast-core", version = "0.1.0" }
+cast-embeddings = { path = "crates/cast-embeddings", version = "0.1.0" }
+cast-index = { path = "crates/cast-index", version = "0.1.0" }
+cast-tokenizers = { path = "crates/cast-tokenizers", version = "0.1.0" }
+cast-tree-sitter = { path = "crates/cast-tree-sitter", version = "0.1.0" }
 clap = { version = "4.5", features = ["derive"] }
 criterion = "0.7.0"
 dotenvy = "0.15"
@@ -39,10 +40,10 @@ dispatch2 = "=0.3.1"
 duckdb = { version = "1.10505.0", features = ["bundled"] }
 futures = "0.3"
 half = "2.7"
-hay-search = { path = "crates/hay-search" }
-hay-duckdb = { path = "crates/hay-duckdb" }
-hay-elasticsearch = { path = "crates/hay-elasticsearch" }
-hay-runtime = { path = "crates/hay-runtime" }
+hay-search = { path = "crates/hay-search", version = "0.1.0" }
+hay-duckdb = { path = "crates/hay-duckdb", version = "0.1.0" }
+hay-elasticsearch = { path = "crates/hay-elasticsearch", version = "0.1.0" }
+hay-runtime = { path = "crates/hay-runtime", version = "0.1.0" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 syn = { version = "2.0", features = ["full", "visit"] }
