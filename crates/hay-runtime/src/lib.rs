@@ -32,6 +32,14 @@ use cast_index::{
 use hay_search::{IndexManifest, Quantization};
 use ring::digest::{SHA256, digest};
 
+mod models;
+
+pub use cast_embeddings::{ModelFetchEvent, ModelFetchReporter};
+pub use models::{
+    DOWNLOAD_MODELS_ENV, LOCAL_STATIC_DIR_ENV, MODEL_BASE_URL_ENV, MODEL_CACHE_DIR_ENV,
+    ResolvedModels, ensure_models, model_cache_dir, report_to_stderr,
+};
+
 /// Load the nearest `.env` file without overriding variables already exported
 /// by the parent process.
 ///
@@ -116,13 +124,31 @@ impl SearchRuntime {
     /// Returns an error when required values are absent or any provider,
     /// retry, URL, dimension, or concurrency setting is invalid.
     pub fn from_env(backend: StorageBackend, provider: EmbeddingProvider) -> Result<Self> {
+        Self::from_env_with_models(backend, provider, &ResolvedModels::default())
+    }
+
+    /// Builds a runtime from the environment using already-resolved bundles.
+    ///
+    /// Loading a local provider stays offline and checksum-verified. Callers
+    /// that want automatic provisioning run [`ensure_models`] first and pass its
+    /// result here; an explicit bundle directory in the environment still wins.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when required values are absent or any provider,
+    /// retry, URL, dimension, or concurrency setting is invalid.
+    pub fn from_env_with_models(
+        backend: StorageBackend,
+        provider: EmbeddingProvider,
+        models: &ResolvedModels,
+    ) -> Result<Self> {
         match provider {
             EmbeddingProvider::None => Ok(Self {
                 manifest: IndexManifest::lexical_v1(),
                 embedder: None,
             }),
             EmbeddingProvider::LocalOnnx => Self::local_onnx(backend),
-            EmbeddingProvider::LocalStatic => Self::local_static(backend),
+            EmbeddingProvider::LocalStatic => Self::local_static(backend, models),
             EmbeddingProvider::Gemini => Self::gemini(backend),
             EmbeddingProvider::OpenAi => Self::openai(backend),
             EmbeddingProvider::Voyage => Self::voyage(backend),
@@ -153,10 +179,16 @@ impl SearchRuntime {
         ))
     }
 
-    fn local_static(backend: StorageBackend) -> Result<Self> {
-        let bundle_dir = std::env::var("HAY_LOCAL_STATIC_MODEL_DIR")
-            .context("HAY_LOCAL_STATIC_MODEL_DIR is required for local static embeddings")?;
-        let provider = LocalStaticEmbedder::new(LocalStaticConfig::new(bundle_dir))?;
+    fn local_static(backend: StorageBackend, models: &ResolvedModels) -> Result<Self> {
+        let bundle_dir = models::static_bundle_dir(models)?;
+        let provider =
+            LocalStaticEmbedder::new(LocalStaticConfig::new(&bundle_dir)).with_context(|| {
+                format!(
+                    "open the static embedding bundle at {}; if it is damaged, delete that \
+                     directory and re-run to provision it again",
+                    bundle_dir.display()
+                )
+            })?;
         let base_dimensions = provider.identity().dimensions;
         let revision = provider.model_revision().to_owned();
         let embedder = Arc::new(provider) as Arc<dyn Embedder>;

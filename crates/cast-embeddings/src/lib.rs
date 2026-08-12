@@ -25,6 +25,8 @@ mod cloudflare_workers_ai;
 mod http;
 mod local_onnx;
 mod local_static;
+pub mod model_catalog;
+mod model_fetch;
 mod openai;
 mod retry;
 mod voyage;
@@ -42,6 +44,11 @@ pub use local_onnx::{
 };
 pub use local_static::{
     LocalStaticConfig, LocalStaticEmbedder, LocalStaticError, POTION_CODE_16M_V2_PROFILE,
+};
+pub use model_catalog::{LocalModelArtifact, LocalModelEntry, LocalModelKind};
+pub use model_fetch::{
+    DEFAULT_MODEL_BASE_URL, ModelFetchConfig, ModelFetchError, ModelFetchEvent, ModelFetchReporter,
+    ensure_bundle,
 };
 pub use openai::{
     OPENAI_DEFAULT_MODEL, OPENAI_EMBEDDINGS_ENDPOINT, OpenAiEmbeddings, OpenAiEmbeddingsConfig,

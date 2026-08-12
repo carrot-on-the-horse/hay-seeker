@@ -33,6 +33,7 @@ cast-core.workspace = true
 criterion.workspace = true
 dotenvy.workspace = true
 hay-search.workspace = true
+tempfile.workspace = true
 
 [[bench]]
 name = "local_encode"

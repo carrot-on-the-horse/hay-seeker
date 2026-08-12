@@ -2,8 +2,17 @@
 
 Hay's `local-static` provider pins `minishlab/potion-code-16M-v2` at revision
 `e9d2a44ca6a05ac6685f3b23709ea57eb7352d5b`. The model is code-trained,
-MIT-licensed, 256-dimensional, and runs from a static token-embedding table;
-there is no network or model-download path in the runtime.
+MIT-licensed, 256-dimensional, and runs from a static token-embedding table.
+Its license lineage is permissive throughout: the checkpoint is MIT, distilled
+from the MIT-licensed `nomic-ai/CodeRankEmbed`, itself built on Apache-2.0
+`Snowflake/snowflake-arctic-embed-m-long`. Redistribution and automatic
+provisioning are permitted with attribution.
+
+Loading is offline and checksum-verified. By default Hay provisions this bundle
+into a per-user cache on first use; see
+[Automatic model provisioning](../../README.md#automatic-model-provisioning).
+The rest of this document describes staging the bundle by hand, which
+`HAY_LOCAL_STATIC_MODEL_DIR` selects and which disables provisioning entirely.
 
 Create a private bundle directory containing the three unmodified upstream
 artifacts plus the checked-in manifest template:

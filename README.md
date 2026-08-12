@@ -38,7 +38,10 @@ retrieval-mode caveat are in [BENCHMARKS.md](./BENCHMARKS.md).
 
 Hay Seeker is available under the [MIT License](./LICENSE). Contributions are
 welcome; see [CONTRIBUTING.md](./CONTRIBUTING.md), and report security issues
-privately according to [SECURITY.md](./SECURITY.md).
+privately according to [SECURITY.md](./SECURITY.md). Coding agents and anyone
+looking for the exact commands, pull-request workflow, or
+[release and publish steps](./AGENTS.md#release) should read
+[AGENTS.md](./AGENTS.md).
 
 ## Try it
 
@@ -61,6 +64,13 @@ cargo run -p hay-cli -- search --backend duckdb \
   --database .hay-seeker/index.duckdb --top-k 5 \
   "where is manifest compatibility validated?"
 ```
+
+Those commands need no credentials and no manual model staging. `hay` defaults
+to `--embeddings local-static` and provisions the pinned
+[Potion Code 16M v2](./models/potion-code-16m-v2/README.md) bundle (MIT, 31 MiB)
+into a per-user cache on first use, then runs entirely locally. See
+[Automatic model provisioning](#automatic-model-provisioning) to point it at a
+mirror, pre-stage the bundle, or turn downloading off.
 
 ### Configure with `.env`
 
@@ -119,9 +129,9 @@ searching, and MCP. Lexical-only search needs no model or credentials:
 COTH_HAY_SEEKER_EMBEDDINGS=none
 ```
 
-The fully offline ONNX and code-specific static profiles point to locally
-provisioned, checksum-pinned bundles; Hay never downloads model files at
-runtime:
+The ONNX and code-specific static profiles run from checksum-pinned local
+bundles. The ONNX profile is always caller-provisioned. The static profile is
+provisioned automatically unless you stage it yourself or disable downloads:
 
 ```dotenv
 # Snowflake Arctic Embed m v2, Nomic v1.5, or EmbeddingGemma bundle
@@ -279,9 +289,10 @@ seed 256d DuckDB / 768d Elasticsearch parity gate. The
 [EmbeddingGemma](./models/embeddinggemma/README.md) profiles remain supported
 for comparison and caller-provisioned deployments.
 
-Hay verifies every artifact before loading it and never downloads model files
-at runtime. A bundle pins its exact graph inputs, output transform, retrieval
-prompts, and embedding profile as part of the index identity. Core ML is tried
+Hay verifies every artifact before loading it, and never downloads an ONNX
+bundle: `HAY_LOCAL_MODEL_DIR` must already exist. A bundle pins its exact graph
+inputs, output transform, retrieval prompts, and embedding profile as part of
+the index identity. Core ML is tried
 only when that exact graph declares compatibility; otherwise ONNX Runtime uses
 CPU explicitly. DuckDB stores 256 re-normalized MRL dimensions as versioned
 per-vector int8 values with scale and offset, while Elasticsearch uses the same
@@ -296,7 +307,9 @@ stored width/quantization rather than in which part of a chunk they see.
 For the promotable low-footprint path, `--embeddings local-static` uses the
 code-trained [Potion Code 16M v2 bundle](./models/potion-code-16m-v2/README.md).
 The Rust adapter directly opens its checksum-pinned F16 embedding table and
-tokenizer; it does not download artifacts or invoke an external runtime. Both
+tokenizer; it never invokes an external runtime, and it reads only from disk.
+Provisioning that bundle is a separate step that runs before loading, described
+in [Automatic model provisioning](#automatic-model-provisioning). Both
 backends use the model's native trained 256 dimensions. This deliberately
 changes the original 256d-local/768d-remote width contract, and the distinct
 embedding-profile identity makes old indexes fail closed instead of silently
@@ -322,7 +335,8 @@ HAY_LOCAL_MODEL_DIR=/absolute/path/to/snowflake-arctic-bundle \
   --database /absolute/path/to/offline.duckdb
 ```
 
-The equivalent static code-model cycle is:
+The equivalent static code-model cycle, with the bundle staged by hand rather
+than provisioned, is:
 
 ```bash
 export HAY_LOCAL_STATIC_MODEL_DIR=/absolute/path/to/potion-code-16m-v2
@@ -331,6 +345,64 @@ cargo run -p hay-cli -- index --backend duckdb --embeddings local-static \
 cargo run -p hay-cli -- search --backend duckdb --embeddings local-static \
   --database .hay-seeker/code.duckdb "where is request validation handled?"
 ```
+
+## Automatic model provisioning
+
+`--embeddings local-static` is the default, so `hay` and `hay-mcp` need a
+Potion Code 16M v2 bundle before they can open an index. They resolve one in a
+fixed order:
+
+1. `HAY_LOCAL_STATIC_MODEL_DIR`, when set. A staged bundle always wins and is
+   never compared against the network.
+2. The per-user cache, when it already holds the pinned artifacts.
+3. A download, when `COTH_HAY_SEEKER_DOWNLOAD_MODELS` is true (the default).
+
+Provisioning is not a trust decision. The catalog in `cast-embeddings` pins the
+upstream revision, each artifact's exact byte length, and each artifact's
+SHA-256, and a transfer that misses any of them is deleted rather than used.
+The manifest written into the cache is byte-identical to
+[`static-bundle.example.json`](./models/potion-code-16m-v2/static-bundle.example.json),
+so a provisioned bundle and a hand-staged one produce the same index identity
+and the same `bundle-sha256` in the manifest. That is why a mirror over plain
+HTTP is safe: it can serve the bytes faster, but it cannot serve different ones.
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `COTH_HAY_SEEKER_DOWNLOAD_MODELS` | `true` | Allow provisioning. `false` fails with instructions instead of downloading. |
+| `COTH_HAY_SEEKER_MODEL_CACHE_DIR` | platform cache | Where bundles are stored. |
+| `COTH_HAY_SEEKER_MODEL_BASE_URL` | `https://huggingface.co` | Mirror or proxy to fetch from. |
+| `HAY_LOCAL_STATIC_MODEL_DIR` | unset | Use this staged bundle and skip provisioning entirely. |
+
+The default cache is `$XDG_CACHE_HOME/hay-seeker/models` (or `~/.cache`),
+`~/Library/Caches/hay-seeker/models` on macOS, and `%LOCALAPPDATA%\hay-seeker\models`
+on Windows. Bundles are keyed by model and revision, so a future catalog
+revision provisions beside the current one instead of replacing it.
+
+Air-gapped and reproducible builds keep their previous behavior by pinning both
+settings:
+
+```bash
+export COTH_HAY_SEEKER_DOWNLOAD_MODELS=false
+export HAY_LOCAL_STATIC_MODEL_DIR=/absolute/path/to/potion-code-16m-v2
+```
+
+A damaged cache repairs itself: an artifact whose length no longer matches the
+catalog is re-fetched, and the loader still verifies every digest before use, so
+a corrupted file fails closed rather than producing wrong vectors.
+
+### Upgrading an index built before this default
+
+The default provider changed from `none` to `local-static`, so an index built
+lexically is now opened with a different manifest and fails closed with
+`reindex required`. Keep the old index by naming its provider explicitly:
+
+```bash
+cargo run -p hay-cli -- search --backend duckdb --embeddings none \
+  --database .hay-seeker/index.duckdb "where is request validation handled?"
+```
+
+Provisioning runs before the index manifest is compared, so a mismatched query
+still pays for the download once. Passing `--embeddings none` avoids it.
 
 ## MCP search CLI
 

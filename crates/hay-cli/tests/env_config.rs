@@ -9,9 +9,12 @@ const ISOLATED_ENV_VARS: &[&str] = &[
     "COTH_HAY_SEEKER_CHECKPOINT",
     "COTH_HAY_SEEKER_CORPUS",
     "COTH_HAY_SEEKER_DATABASE",
+    "COTH_HAY_SEEKER_DOWNLOAD_MODELS",
     "COTH_HAY_SEEKER_ELASTICSEARCH_ENDPOINT",
     "COTH_HAY_SEEKER_ELASTICSEARCH_INDEX",
     "COTH_HAY_SEEKER_EMBEDDINGS",
+    "COTH_HAY_SEEKER_MODEL_BASE_URL",
+    "COTH_HAY_SEEKER_MODEL_CACHE_DIR",
     "COTH_HAY_SEEKER_PROGRESS_INTERVAL_SECONDS",
     "COTH_HAY_SEEKER_OPENAI_API_KEY",
     "COTH_HAY_SEEKER_QUERY",
@@ -21,12 +24,24 @@ const ISOLATED_ENV_VARS: &[&str] = &[
     "HAY_LOCAL_STATIC_MODEL_DIR",
 ];
 
+/// Builds an isolated `hay` invocation that cannot reach the network.
+///
+/// The default provider is `local-static`, so an un-pinned test would provision
+/// a model from upstream. Every test here is about argument and `.env`
+/// plumbing, so downloads are refused and the cache is redirected into the
+/// test's own directory; a developer's warm cache cannot change the result
+/// either.
 fn hay_command(current_dir: &Path) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_hay"));
     command.current_dir(current_dir);
     for name in ISOLATED_ENV_VARS {
         command.env_remove(name);
     }
+    command.env("COTH_HAY_SEEKER_DOWNLOAD_MODELS", "false");
+    command.env(
+        "COTH_HAY_SEEKER_MODEL_CACHE_DIR",
+        current_dir.join("model-cache"),
+    );
     command
 }
 
@@ -57,7 +72,7 @@ fn dotenv_can_supply_required_index_arguments() {
     fs::write(
         directory.path().join(".env"),
         format!(
-            "COTH_HAY_SEEKER_DATABASE={}\nCOTH_HAY_SEEKER_REPOSITORY={}\n",
+            "COTH_HAY_SEEKER_DATABASE={}\nCOTH_HAY_SEEKER_REPOSITORY={}\nCOTH_HAY_SEEKER_EMBEDDINGS=none\n",
             database.display(),
             directory.path().join("repository").display()
         ),
@@ -79,7 +94,7 @@ fn command_line_value_overrides_dotenv_value() {
     fs::write(
         directory.path().join(".env"),
         format!(
-            "COTH_HAY_SEEKER_DATABASE={}\nCOTH_HAY_SEEKER_REPOSITORY={}\n",
+            "COTH_HAY_SEEKER_DATABASE={}\nCOTH_HAY_SEEKER_REPOSITORY={}\nCOTH_HAY_SEEKER_EMBEDDINGS=none\n",
             env_database.display(),
             directory.path().join("repository").display()
         ),
@@ -155,5 +170,65 @@ fn dotenv_selects_the_embedding_provider() {
 
     assert!(!output.status.success());
     let error = String::from_utf8(output.stderr).unwrap();
-    assert!(error.contains("HAY_LOCAL_STATIC_MODEL_DIR is required"));
+    assert!(
+        error.contains("minishlab/potion-code-16M-v2"),
+        "the failure names the model it could not provision: {error}"
+    );
+    assert!(
+        error.contains("COTH_HAY_SEEKER_DOWNLOAD_MODELS=true")
+            && error.contains("HAY_LOCAL_STATIC_MODEL_DIR"),
+        "the failure states both remedies: {error}"
+    );
+}
+
+/// The zero-setup default is what makes `hay index` work without credentials,
+/// so a silent revert to lexical-only must fail this suite.
+#[test]
+fn the_default_embedding_provider_is_the_static_code_model() {
+    let directory = tempfile::tempdir().unwrap();
+    write_repository(directory.path());
+
+    let output = hay_command(directory.path())
+        .args(["index", "--repository"])
+        .arg(directory.path().join("repository"))
+        .args(["--database"])
+        .arg(directory.path().join("index.duckdb"))
+        .output()
+        .unwrap();
+
+    assert!(
+        !output.status.success(),
+        "with downloads refused and no staged bundle, the default cannot index"
+    );
+    let error = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        error.contains("potion-code-16M-v2"),
+        "the default provider is the static code model: {error}"
+    );
+}
+
+/// A staged bundle must win over provisioning so air-gapped installs keep
+/// working exactly as before.
+#[test]
+fn a_staged_bundle_directory_is_used_without_downloading() {
+    let directory = tempfile::tempdir().unwrap();
+    write_repository(directory.path());
+    let staged = directory.path().join("staged-bundle");
+    fs::create_dir_all(&staged).unwrap();
+
+    let output = hay_command(directory.path())
+        .args(["index", "--repository"])
+        .arg(directory.path().join("repository"))
+        .args(["--database"])
+        .arg(directory.path().join("index.duckdb"))
+        .env("HAY_LOCAL_STATIC_MODEL_DIR", &staged)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success(), "the staged bundle is empty");
+    let error = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        error.contains("static embedding bundle") && error.contains("staged-bundle"),
+        "the staged directory is opened directly instead of being provisioned: {error}"
+    );
 }

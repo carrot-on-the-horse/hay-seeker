@@ -11,10 +11,13 @@ use anyhow::{Context, Result, bail};
 use async_trait::async_trait;
 use cast_core::LanguageId;
 use cast_index::{DocumentId, Embedder, NormalizedPath};
-use clap::{Parser, ValueEnum};
+use clap::parser::ValueSource;
+use clap::{ArgAction, CommandFactory as _, FromArgMatches as _, Parser, ValueEnum};
 use hay_duckdb::DuckDbIndex;
 use hay_elasticsearch::{ElasticsearchConfig, ElasticsearchIndex};
-use hay_runtime::{EmbeddingProvider, SearchRuntime, StorageBackend, load_dotenv};
+use hay_runtime::{
+    EmbeddingProvider, SearchRuntime, StorageBackend, ensure_models, load_dotenv, report_to_stderr,
+};
 use hay_search::{
     Candidate, Capabilities, DeterministicPhase0Retriever, IndexManifest, Query, Retriever,
     SearchDocument, SearchError, SearchOpts,
@@ -52,15 +55,26 @@ struct Arguments {
         default_value = "duckdb"
     )]
     backend: Backend,
-    /// Optional dense embedding provider. Must match the indexed manifest.
+    /// Dense embedding provider. Must match the indexed manifest.
     #[arg(
         long,
         env = "COTH_HAY_SEEKER_EMBEDDINGS",
         hide_env_values = true,
         value_enum,
-        default_value = "none"
+        default_value = "local-static"
     )]
     embeddings: Embeddings,
+    /// Provision a missing local model bundle automatically.
+    #[arg(
+        long,
+        env = "COTH_HAY_SEEKER_DOWNLOAD_MODELS",
+        hide_env_values = true,
+        num_args = 0..=1,
+        default_value_t = true,
+        default_missing_value = "true",
+        action = ArgAction::Set
+    )]
+    download_models: bool,
     /// JSONL corpus used by the current Phase 0 search backend.
     #[arg(
         long,
@@ -554,45 +568,71 @@ fn load_corpus_reader(reader: impl BufRead, path: &Path) -> Result<Vec<SearchDoc
         .collect()
 }
 
-fn search_runtime(backend: Backend, embeddings: Embeddings) -> Result<SearchRuntime> {
+async fn search_runtime(
+    backend: Backend,
+    embeddings: Embeddings,
+    download_models: bool,
+) -> Result<SearchRuntime> {
     let backend = match backend {
         Backend::Duckdb => StorageBackend::DuckDb,
         Backend::Elasticsearch => StorageBackend::Elasticsearch,
         Backend::Phase0 => bail!("--embeddings is not supported with --backend phase0"),
     };
-    SearchRuntime::from_env(
-        backend,
-        match embeddings {
-            Embeddings::None => EmbeddingProvider::None,
-            Embeddings::LocalOnnx => EmbeddingProvider::LocalOnnx,
-            Embeddings::LocalStatic => EmbeddingProvider::LocalStatic,
-            Embeddings::Gemini => EmbeddingProvider::Gemini,
-            Embeddings::OpenAi => EmbeddingProvider::OpenAi,
-            Embeddings::Voyage => EmbeddingProvider::Voyage,
-            Embeddings::CloudflareWorkersAi => EmbeddingProvider::CloudflareWorkersAi,
-        },
-    )
+    let provider = match embeddings {
+        Embeddings::None => EmbeddingProvider::None,
+        Embeddings::LocalOnnx => EmbeddingProvider::LocalOnnx,
+        Embeddings::LocalStatic => EmbeddingProvider::LocalStatic,
+        Embeddings::Gemini => EmbeddingProvider::Gemini,
+        Embeddings::OpenAi => EmbeddingProvider::OpenAi,
+        Embeddings::Voyage => EmbeddingProvider::Voyage,
+        Embeddings::CloudflareWorkersAi => EmbeddingProvider::CloudflareWorkersAi,
+    };
+    let models = ensure_models(provider, download_models, Some(&report_to_stderr)).await?;
+    SearchRuntime::from_env_with_models(backend, provider, &models)
+}
+
+/// Parses arguments, reporting whether the caller chose the provider.
+///
+/// The Phase 0 corpus backend cannot embed. Defaulting the provider must not
+/// break `--backend phase0`, so an unset provider is silently lexical there
+/// while an explicitly requested one is still rejected.
+fn parse_arguments() -> Result<(Arguments, bool)> {
+    let matches = Arguments::command().get_matches();
+    let chosen = matches!(
+        matches.value_source("embeddings"),
+        Some(ValueSource::CommandLine | ValueSource::EnvVariable)
+    );
+    let arguments = Arguments::from_arg_matches(&matches)?;
+    Ok((arguments, chosen))
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     load_dotenv()?;
-    let arguments = Arguments::parse();
+    let (arguments, chose_embeddings) = parse_arguments()?;
     let server = match arguments.backend {
         Backend::Phase0 => {
-            if arguments.embeddings != Embeddings::None {
+            if chose_embeddings && arguments.embeddings != Embeddings::None {
                 bail!("--embeddings is not supported with --backend phase0");
             }
             SearchServer::phase0(load_corpus(&arguments.corpus)?)?
         }
         Backend::Duckdb => {
-            let SearchRuntime { manifest, embedder } =
-                search_runtime(arguments.backend, arguments.embeddings)?;
+            let SearchRuntime { manifest, embedder } = search_runtime(
+                arguments.backend,
+                arguments.embeddings,
+                arguments.download_models,
+            )
+            .await?;
             SearchServer::duckdb(arguments.database, manifest, embedder)?
         }
         Backend::Elasticsearch => {
-            let SearchRuntime { manifest, embedder } =
-                search_runtime(arguments.backend, arguments.embeddings)?;
+            let SearchRuntime { manifest, embedder } = search_runtime(
+                arguments.backend,
+                arguments.embeddings,
+                arguments.download_models,
+            )
+            .await?;
             let mut config = ElasticsearchConfig::new(arguments.endpoint, arguments.index);
             if let Ok(api_key) = std::env::var("ELASTICSEARCH_API_KEY") {
                 config = config.with_api_key(api_key);
