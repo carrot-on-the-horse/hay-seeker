@@ -16,7 +16,8 @@ use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 use hay_duckdb::DuckDbIndex;
 use hay_elasticsearch::{ElasticsearchConfig, ElasticsearchIndex};
 use hay_runtime::{
-    EmbeddingProvider, SearchRuntime, StorageBackend, ensure_models, load_dotenv, report_to_stderr,
+    EmbeddingProvider, SearchRuntime, StorageBackend, Workspace, ensure_models, load_dotenv,
+    prepare_index_directory, report_to_stderr,
 };
 use hay_search::{
     Candidate, IndexManifest, Query, Retriever, SearchDocument, SearchError, SearchOpts,
@@ -24,11 +25,18 @@ use hay_search::{
 use ring::digest::{SHA256, digest};
 use serde::{Deserialize, Serialize};
 
+mod interaction;
 mod repository;
 
+use interaction::{AutoIndex, Interaction};
 use repository::{
     RepositoryCheckpoint, RepositoryChunkStream, RepositoryProgress, RepositoryStats,
 };
+
+/// Default seconds without progress before a repository run aborts.
+const DEFAULT_STALL_TIMEOUT_SECONDS: u64 = 600;
+/// Default seconds between repository progress reports.
+const DEFAULT_PROGRESS_INTERVAL_SECONDS: u64 = 5;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -73,33 +81,32 @@ enum Command {
             action = ArgAction::Set
         )]
         download_models: bool,
-        /// Destination `DuckDB` file.
-        #[arg(
-            long,
-            env = "COTH_HAY_SEEKER_DATABASE",
-            hide_env_values = true,
-            default_value = ".hay-seeker/index.duckdb"
-        )]
-        database: PathBuf,
+        /// Destination `DuckDB` file. Defaults to the repository's own index.
+        #[arg(long, env = "COTH_HAY_SEEKER_DATABASE", hide_env_values = true)]
+        database: Option<PathBuf>,
         /// Source JSONL containing `doc_id`, path, language, and text.
         #[arg(
             long,
             env = "COTH_HAY_SEEKER_CORPUS",
             hide_env_values = true,
-            conflicts_with = "repository",
-            required_unless_present = "repository"
+            conflicts_with = "repository"
         )]
         corpus: Option<PathBuf>,
         /// Git repository (or non-Git source directory) to scan and CAST-chunk.
-        #[arg(long, conflicts_with = "corpus", required_unless_present = "corpus")]
+        ///
+        /// Defaults to the Git repository containing the current directory, and
+        /// to the current directory itself outside a repository.
+        #[arg(long, conflicts_with = "corpus")]
         #[arg(env = "COTH_HAY_SEEKER_REPOSITORY", hide_env_values = true)]
         repository: Option<PathBuf>,
         /// Incremental repository checkpoint (derived automatically when omitted).
+        ///
+        /// Applies to a repository run, whether its path was given or defaulted.
         #[arg(
             long,
             env = "COTH_HAY_SEEKER_CHECKPOINT",
             hide_env_values = true,
-            requires = "repository"
+            conflicts_with = "corpus"
         )]
         checkpoint: Option<PathBuf>,
         /// Abort after this many seconds without a completed or skipped file.
@@ -107,7 +114,7 @@ enum Command {
             long,
             env = "COTH_HAY_SEEKER_STALL_TIMEOUT_SECONDS",
             hide_env_values = true,
-            default_value_t = 600
+            default_value_t = DEFAULT_STALL_TIMEOUT_SECONDS
         )]
         stall_timeout_seconds: u64,
         /// Emit repository progress JSON to stderr at this interval.
@@ -115,7 +122,7 @@ enum Command {
             long,
             env = "COTH_HAY_SEEKER_PROGRESS_INTERVAL_SECONDS",
             hide_env_values = true,
-            default_value_t = 5
+            default_value_t = DEFAULT_PROGRESS_INTERVAL_SECONDS
         )]
         progress_interval_seconds: u64,
         /// Elasticsearch base URL.
@@ -166,14 +173,18 @@ enum Command {
             action = ArgAction::Set
         )]
         download_models: bool,
-        /// `DuckDB` index file.
+        /// `DuckDB` index file. Defaults to the repository's own index.
+        #[arg(long, env = "COTH_HAY_SEEKER_DATABASE", hide_env_values = true)]
+        database: Option<PathBuf>,
+        /// What to do when the repository has no index yet.
         #[arg(
             long,
-            env = "COTH_HAY_SEEKER_DATABASE",
+            env = "COTH_HAY_SEEKER_AUTO_INDEX",
             hide_env_values = true,
-            default_value = ".hay-seeker/index.duckdb"
+            value_enum,
+            default_value = "ask"
         )]
-        database: PathBuf,
+        auto_index: AutoIndex,
         /// Elasticsearch base URL.
         #[arg(
             long,
@@ -281,47 +292,60 @@ async fn main() -> Result<()> {
             endpoint,
             index,
         } => {
-            index_source(
+            let location = IndexLocation::resolve(database)?;
+            let repository = match (&corpus, repository) {
+                (None, None) => {
+                    location.announce_default_target();
+                    Some(location.workspace.root().to_path_buf())
+                }
+                (_, explicit) => explicit,
+            };
+            let result = index_source(IndexRequest {
                 backend,
-                EmbeddingSelection {
+                selection: EmbeddingSelection {
                     embeddings,
                     download_models,
                 },
-                &database,
-                corpus.as_deref(),
-                repository.as_deref(),
-                checkpoint.as_deref(),
+                database: &location.database,
+                corpus: corpus.as_deref(),
+                repository: repository.as_deref(),
+                checkpoint: checkpoint.as_deref(),
                 stall_timeout_seconds,
                 progress_interval_seconds,
-                &endpoint,
-                &index,
-            )
-            .await
+                endpoint: &endpoint,
+                index_alias: &index,
+            })
+            .await?;
+            println!("{}", serde_json::to_string_pretty(&result)?);
+            Ok(())
         }
         Command::Search {
             backend,
             embeddings,
             download_models,
             database,
+            auto_index,
             endpoint,
             index,
             top_k,
             candidate_limit,
             query,
         } => {
-            search(
+            let location = IndexLocation::resolve(database)?;
+            search(SearchRequest {
                 backend,
-                EmbeddingSelection {
+                selection: EmbeddingSelection {
                     embeddings,
                     download_models,
                 },
-                &database,
-                &endpoint,
-                &index,
+                location: &location,
+                auto_index,
+                endpoint: &endpoint,
+                index_alias: &index,
                 query,
                 top_k,
                 candidate_limit,
-            )
+            })
             .await
         }
     }
@@ -334,6 +358,80 @@ struct EmbeddingSelection {
     download_models: bool,
 }
 
+/// The repository a zero-setup run works on and the index file that holds it.
+#[derive(Clone, Debug)]
+struct IndexLocation {
+    workspace: Workspace,
+    database: PathBuf,
+    configured: bool,
+}
+
+impl IndexLocation {
+    /// Resolves the index path, defaulting to the enclosing repository's own.
+    ///
+    /// An index belongs to a repository, not to the directory the operator
+    /// happens to stand in, so the default is derived from the Git root. An
+    /// explicit `--database` or `COTH_HAY_SEEKER_DATABASE` always wins.
+    fn resolve(configured: Option<PathBuf>) -> Result<Self> {
+        let workspace = Workspace::from_current_dir()?;
+        Ok(match configured {
+            Some(database) => Self {
+                workspace,
+                database,
+                configured: true,
+            },
+            None => Self {
+                database: workspace.default_database(),
+                workspace,
+                configured: false,
+            },
+        })
+    }
+
+    /// Names the directory a defaulted run is about to read.
+    ///
+    /// Indexing the wrong tree is slow and confusing to discover afterwards, so
+    /// a run that chose its own target says so before it starts.
+    fn announce_default_target(&self) {
+        eprintln!(
+            "hay: indexing {} ({})",
+            self.workspace.root().display(),
+            if self.workspace.is_git_repository() {
+                "Git repository, honoring its ignore rules"
+            } else {
+                "directory"
+            }
+        );
+    }
+}
+
+/// Everything an index run needs, resolved from arguments and the environment.
+struct IndexRequest<'a> {
+    backend: Backend,
+    selection: EmbeddingSelection,
+    database: &'a Path,
+    corpus: Option<&'a Path>,
+    repository: Option<&'a Path>,
+    checkpoint: Option<&'a Path>,
+    stall_timeout_seconds: u64,
+    progress_interval_seconds: u64,
+    endpoint: &'a str,
+    index_alias: &'a str,
+}
+
+/// Everything a search run needs, resolved from arguments and the environment.
+struct SearchRequest<'a> {
+    backend: Backend,
+    selection: EmbeddingSelection,
+    location: &'a IndexLocation,
+    auto_index: AutoIndex,
+    endpoint: &'a str,
+    index_alias: &'a str,
+    query: String,
+    top_k: usize,
+    candidate_limit: usize,
+}
+
 enum IndexDocuments {
     Corpus(Vec<SearchDocument>),
     Repository {
@@ -344,19 +442,20 @@ enum IndexDocuments {
     },
 }
 
-#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
-async fn index_source(
-    backend: Backend,
-    selection: EmbeddingSelection,
-    database: &Path,
-    corpus: Option<&Path>,
-    repository: Option<&Path>,
-    checkpoint: Option<&Path>,
-    stall_timeout_seconds: u64,
-    progress_interval_seconds: u64,
-    endpoint: &str,
-    index_alias: &str,
-) -> Result<()> {
+#[allow(clippy::too_many_lines)]
+async fn index_source(request: IndexRequest<'_>) -> Result<IndexResult> {
+    let IndexRequest {
+        backend,
+        selection,
+        database,
+        corpus,
+        repository,
+        checkpoint,
+        stall_timeout_seconds,
+        progress_interval_seconds,
+        endpoint,
+        index_alias,
+    } = request;
     let started = Instant::now();
     let stall_timeout = positive_duration(stall_timeout_seconds, "stall-timeout-seconds")?;
     let progress_interval =
@@ -390,7 +489,8 @@ async fn index_source(
                 incremental,
             }
         }
-        _ => bail!("exactly one of --corpus or --repository is required"),
+        (Some(_), Some(_)) => bail!("pass at most one of --corpus or --repository"),
+        (None, None) => bail!("no source to index; pass --corpus or --repository"),
     };
     let mode = match &documents {
         IndexDocuments::Corpus(_) => "corpus",
@@ -486,19 +586,15 @@ async fn index_source(
             )
         }
     };
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&IndexResult {
-            backend: backend_name,
-            target,
-            documents: document_count,
-            mode,
-            total_ms: duration_millis(started.elapsed()),
-            repository,
-            manifest,
-        })?
-    );
-    Ok(())
+    Ok(IndexResult {
+        backend: backend_name,
+        target,
+        documents: document_count,
+        mode,
+        total_ms: duration_millis(started.elapsed()),
+        repository,
+        manifest,
+    })
 }
 
 async fn rebuild_duckdb(
@@ -509,12 +605,11 @@ async fn rebuild_duckdb(
     stall_timeout: Duration,
     progress_interval: Duration,
 ) -> Result<(usize, Option<RepositoryStats>)> {
+    prepare_index_directory(database)?;
     let parent = database
         .parent()
         .filter(|path| !path.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
-    std::fs::create_dir_all(parent)
-        .with_context(|| format!("create index directory {}", parent.display()))?;
     let temporary_directory = tempfile::Builder::new()
         .prefix(".hay-rebuild-")
         .tempdir_in(parent)
@@ -663,17 +758,18 @@ fn duration_millis(duration: Duration) -> u64 {
     u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
 }
 
-#[allow(clippy::too_many_arguments)]
-async fn search(
-    backend: Backend,
-    selection: EmbeddingSelection,
-    database: &Path,
-    endpoint: &str,
-    index_alias: &str,
-    query: String,
-    top_k: usize,
-    candidate_limit: usize,
-) -> Result<()> {
+async fn search(request: SearchRequest<'_>) -> Result<()> {
+    let SearchRequest {
+        backend,
+        selection,
+        location,
+        auto_index,
+        endpoint,
+        index_alias,
+        query,
+        top_k,
+        candidate_limit,
+    } = request;
     let top_k = NonZeroUsize::new(top_k).context("top-k must be greater than zero")?;
     let candidate_limit =
         NonZeroUsize::new(candidate_limit).context("candidate-limit must be greater than zero")?;
@@ -684,11 +780,20 @@ async fn search(
     };
     options.validate()?;
     let query = Query::new(query)?;
+    if matches!(backend, Backend::Duckdb) && !location.database.is_file() {
+        provision_missing_index(location, selection, auto_index).await?;
+    }
     let SearchRuntime { manifest, embedder } = search_runtime(backend, selection).await?;
     let (backend_name, candidates, indexed_documents) = match backend {
         Backend::Duckdb => {
-            let index = DuckDbIndex::open(database, manifest, embedder)?;
+            let index = DuckDbIndex::open(&location.database, manifest, embedder)?;
             let candidates = index.search(&query, &options).await?;
+            if candidates.is_empty() && index.document_count()? == 0 {
+                eprintln!(
+                    "hay: {} holds no documents; rebuild it with `hay index`",
+                    location.database.display()
+                );
+            }
             let ids = candidate_ids(&candidates);
             ("duckdb", candidates, index.documents(&ids)?)
         }
@@ -724,6 +829,71 @@ async fn search(
             query: query.text,
             results,
         })?
+    );
+    Ok(())
+}
+
+/// Builds the index a search needs, or fails with the command that would.
+///
+/// Searching a repository nobody has indexed yet is the first thing a new
+/// operator does, and `DuckDB` would otherwise create an empty database and
+/// report zero results as if the corpus contained no match. A person at a
+/// terminal is offered the index; an automated caller is never asked, because a
+/// prompt it cannot answer is a hung job. Both paths name the exact command and
+/// the setting that would have built it, so neither has to guess.
+async fn provision_missing_index(
+    location: &IndexLocation,
+    selection: EmbeddingSelection,
+    auto_index: AutoIndex,
+) -> Result<()> {
+    let root = location.workspace.root().display().to_string();
+    let database = location.database.display().to_string();
+    let build = match auto_index {
+        AutoIndex::Always => true,
+        AutoIndex::Never => false,
+        // An index path someone configured may describe a corpus that has
+        // nothing to do with this directory, so it is never filled in by guess.
+        // `always` is an explicit instruction and still honored.
+        AutoIndex::Ask if location.configured => false,
+        AutoIndex::Ask => match Interaction::detect() {
+            Interaction::Interactive => {
+                eprintln!("hay: {database} has no index yet");
+                interaction::confirm(&format!("index {root} now?"))?
+            }
+            Interaction::Automated => false,
+        },
+    };
+    if !build {
+        let remedy = if location.configured {
+            format!("build it with `hay index --database {database}`")
+        } else {
+            format!(
+                "run `hay index` in {root}, or set COTH_HAY_SEEKER_AUTO_INDEX=always \
+                 to build it on demand"
+            )
+        };
+        bail!("no index at {database}; {remedy}");
+    }
+    let started = Instant::now();
+    let result = index_source(IndexRequest {
+        backend: Backend::Duckdb,
+        selection,
+        database: &location.database,
+        corpus: None,
+        repository: Some(location.workspace.root()),
+        checkpoint: None,
+        stall_timeout_seconds: DEFAULT_STALL_TIMEOUT_SECONDS,
+        progress_interval_seconds: DEFAULT_PROGRESS_INTERVAL_SECONDS,
+        endpoint: "",
+        index_alias: "",
+    })
+    .await
+    .with_context(|| format!("index {root} before searching it"))?;
+    // Standard output belongs to the search result, so the build reports here.
+    eprintln!(
+        "hay: indexed {} chunks from {root} in {:.1}s",
+        result.documents,
+        started.elapsed().as_secs_f64()
     );
     Ok(())
 }

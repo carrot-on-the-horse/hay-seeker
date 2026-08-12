@@ -599,7 +599,9 @@ enum RepositoryPaths {
 impl RepositoryPaths {
     fn open(root: &Path) -> Result<Self> {
         match git_root(root)? {
-            Some(git_root) if git_root == root => Ok(Self::Git(GitPaths::spawn(root)?)),
+            // Both sides are canonical so that a relative source such as `.`
+            // is recognized as its own Git root instead of looking nested.
+            Some(git_root) if git_root == canonical(root)? => Ok(Self::Git(GitPaths::spawn(root)?)),
             Some(git_root) => bail!(
                 "repository source {} is inside {}; pass the Git root explicitly",
                 root.display(),
@@ -608,6 +610,11 @@ impl RepositoryPaths {
             None => Ok(Self::Walk(WalkPaths::new(root)?)),
         }
     }
+}
+
+fn canonical(root: &Path) -> Result<PathBuf> {
+    root.canonicalize()
+        .with_context(|| format!("resolve repository source {}", root.display()))
 }
 
 impl Iterator for RepositoryPaths {
@@ -770,22 +777,12 @@ fn read_sorted_directory(path: &Path) -> Result<SortedDirectory> {
     })
 }
 
+/// Resolves the Git working tree enclosing `root`.
+///
+/// A host without Git resolves to `None` and is walked directly, so the
+/// zero-setup path does not require Git to be installed.
 fn git_root(root: &Path) -> Result<Option<PathBuf>> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(["rev-parse", "--show-toplevel"])
-        .output()
-        .with_context(|| format!("detect Git repository for {}", root.display()))?;
-    if !output.status.success() {
-        return Ok(None);
-    }
-    let value = String::from_utf8(output.stdout).context("Git root is not UTF-8")?;
-    Ok(Some(
-        PathBuf::from(value.trim())
-            .canonicalize()
-            .context("canonicalize Git root")?,
-    ))
+    hay_runtime::git_root(root)
 }
 
 fn has_hidden_component(path: &Path) -> bool {

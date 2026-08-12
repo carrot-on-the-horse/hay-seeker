@@ -618,6 +618,13 @@ impl DuckDbIndex {
     }
 }
 
+/// Bounds the embedded engine and keeps it off the network.
+///
+/// Retrieval is implemented with persisted BM25 statistics and an exact cosine
+/// scan, so no `DuckDB` extension is ever needed. Autoloading stays off so a query
+/// can never turn into an extension download: the storage engine is compiled
+/// into this binary, and an air-gapped or offline install must keep working
+/// exactly as a connected one does.
 fn embedded_config() -> Result<Config, SearchError> {
     Config::default()
         .max_memory(DEFAULT_MEMORY_LIMIT)
@@ -629,6 +636,8 @@ fn embedded_config() -> Result<Config, SearchError> {
                 DEFAULT_WRITE_BUFFER_LIMIT,
             )
         })
+        .and_then(|config| config.with("autoinstall_known_extensions", "false"))
+        .and_then(|config| config.with("autoload_known_extensions", "false"))
         .map_err(storage_error)
 }
 

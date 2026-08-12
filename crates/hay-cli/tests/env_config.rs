@@ -3,6 +3,7 @@ use std::path::Path;
 use std::process::{Command, Output};
 
 const ISOLATED_ENV_VARS: &[&str] = &[
+    "COTH_HAY_SEEKER_AUTO_INDEX",
     "COTH_HAY_SEEKER_BACKEND",
     "COTH_HAY_SEEKER_CANDIDATE_LIMIT",
     "COTH_HAY_SEEKER_CF_AIG_TOKEN",

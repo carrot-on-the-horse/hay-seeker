@@ -1342,6 +1342,7 @@ dependencies = [
  "dotenvy",
  "hay-search",
  "ring",
+ "tempfile",
  "tokio",
 ]
 

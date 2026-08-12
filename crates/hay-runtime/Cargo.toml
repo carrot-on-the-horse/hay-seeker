@@ -17,6 +17,7 @@ hay-search.workspace = true
 ring.workspace = true
 
 [dev-dependencies]
+tempfile.workspace = true
 tokio.workspace = true
 
 [lints]

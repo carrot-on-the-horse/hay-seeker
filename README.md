@@ -55,7 +55,22 @@ Read Rust from stdin:
 printf 'fn main() {}\n' | cargo run -p cast-cli -- - --language rust --pretty
 ```
 
-CAST-chunk a Git repository into a durable local index, then query it:
+CAST-chunk a Git repository into a durable local index, then query it. From
+anywhere inside the repository, with no paths and no flags:
+
+```bash
+cd /path/to/repository
+hay index
+hay search "where is manifest compatibility validated?"
+```
+
+`hay index` with no source indexes the Git repository containing the current
+directory — honoring its ignore rules — and falls back to the current directory
+itself outside a repository. The index belongs to the repository, at
+`<root>/.hay-seeker/index.duckdb`, so a search from a subdirectory reads the
+same index instead of starting a second one. That directory is created with a
+`.gitignore` covering its own contents, so the index never shows up in
+`git status`. Both paths remain explicit when you want them to be:
 
 ```bash
 cargo run -p hay-cli -- index --backend duckdb \
@@ -65,12 +80,72 @@ cargo run -p hay-cli -- search --backend duckdb \
   "where is manifest compatibility validated?"
 ```
 
-Those commands need no credentials and no manual model staging. `hay` defaults
-to `--embeddings local-static` and provisions the pinned
+Those commands need no credentials, no manual model staging, and no database
+server. `hay` defaults to `--embeddings local-static` and provisions the pinned
 [Potion Code 16M v2](./models/potion-code-16m-v2/README.md) bundle (MIT, 31 MiB)
 into a per-user cache on first use, then runs entirely locally. See
 [Automatic model provisioning](#automatic-model-provisioning) to point it at a
-mirror, pre-stage the bundle, or turn downloading off.
+mirror, pre-stage the bundle, or turn downloading off. DuckDB itself is
+compiled into the executable, so nothing has to be installed or downloaded for
+storage; see [No DuckDB to install](#no-duckdb-to-install).
+
+### Searching before anything is indexed
+
+Searching a repository that has no index yet is a normal first run, so `hay
+search` resolves it instead of reporting zero results against an empty
+database. What it does depends on who is calling:
+
+- **A person at a terminal** is offered the index:
+  `hay: index /path/to/repository now? [Y/n]`. Answering yes builds it and then
+  answers the query in the same run. The question and the build report go to
+  standard error, so `hay search … | jq` keeps working.
+- **Anything automated** — a pipe, a daemon, a CI job — is never asked, because
+  a prompt nobody can answer is a hung job. It fails with the command that
+  would fix it. Prompting needs both standard input and standard error to be
+  terminals, and any of `CI`, `CONTINUOUS_INTEGRATION`, `GITHUB_ACTIONS`,
+  `GITLAB_CI`, `BUILDKITE`, `CIRCLECI`, `JENKINS_URL`, `TEAMCITY_VERSION`, or
+  `TF_BUILD` withdraws the offer even on a terminal.
+
+`--auto-index` (`COTH_HAY_SEEKER_AUTO_INDEX`) sets the policy explicitly:
+
+| Value | Behavior |
+| --- | --- |
+| `ask` (default) | Offer when a person is present; fail closed otherwise |
+| `always` | Build the index without asking. What CI opts in with |
+| `never` | Never build implicitly; fail closed and name the command |
+
+```bash
+COTH_HAY_SEEKER_AUTO_INDEX=always hay search "atomic alias swap"
+```
+
+An index path you configured yourself with `--database` or
+`COTH_HAY_SEEKER_DATABASE` may describe a corpus unrelated to the current
+directory, so `ask` never fills it in by guesswork; it names
+`hay index --database <path>` instead. `always` is an explicit instruction and
+still honored. `hay-mcp` never prompts at all — standard output carries the MCP
+protocol — and refuses to start against a missing index.
+
+### No DuckDB to install
+
+There is nothing to download or install for storage, and nothing to look for on
+`PATH`. DuckDB is compiled into the executable through the `duckdb` crate's
+`bundled` feature, so `hay` links only against the operating system's own
+libraries:
+
+```bash
+otool -L "$(command -v hay)" | grep -i duckdb || echo "statically linked"
+```
+
+Use `ldd` instead of `otool -L` on Linux. A `duckdb` command already on the
+host is unrelated and never consulted; an index is a single portable file, not a
+service, and no port is opened.
+
+The cost is paid at build time instead: vendored DuckDB is C++, so building from
+source — including `cargo install hay-cli` — needs a working C++ toolchain and
+takes several minutes on a cold cache. Installing a prebuilt binary from a
+[release](./AGENTS.md#release) skips that compile entirely. An index file is a
+normal DuckDB database, so a `duckdb` CLI of the matching storage version can
+open it for inspection, but Hay Seeker never requires one.
 
 ### Configure with `.env`
 
@@ -103,9 +178,11 @@ cargo run -p hay-cli -- index
 cargo run -p hay-cli -- search "where is manifest compatibility validated?"
 ```
 
-The query itself can optionally come from `COTH_HAY_SEEKER_QUERY`. Other
-supported settings are `COTH_HAY_SEEKER_CORPUS`,
-`COTH_HAY_SEEKER_CHECKPOINT`, `COTH_HAY_SEEKER_STALL_TIMEOUT_SECONDS`,
+The query itself can optionally come from `COTH_HAY_SEEKER_QUERY`, and
+`COTH_HAY_SEEKER_DATABASE` is optional too: unset, it resolves to the enclosing
+repository's own index. Other supported settings are `COTH_HAY_SEEKER_CORPUS`,
+`COTH_HAY_SEEKER_AUTO_INDEX`, `COTH_HAY_SEEKER_CHECKPOINT`,
+`COTH_HAY_SEEKER_STALL_TIMEOUT_SECONDS`,
 `COTH_HAY_SEEKER_PROGRESS_INTERVAL_SECONDS`,
 `COTH_HAY_SEEKER_ELASTICSEARCH_ENDPOINT`,
 `COTH_HAY_SEEKER_ELASTICSEARCH_INDEX`, and
@@ -453,6 +530,14 @@ from `ELASTICSEARCH_API_KEY` or `ELASTICSEARCH_BEARER_TOKEN` in the environment
 or `.env`. `--backend phase0 --corpus ...` remains only as a deterministic
 integration stub. Only JSON-RPC protocol messages are written to stdout;
 startup errors go to stderr.
+
+`--database` is optional here too: launched with the client's working directory
+inside a repository, `hay-mcp` serves that repository's own
+`.hay-seeker/index.duckdb`. Most clients do not guarantee a working directory,
+so an absolute path stays the reliable choice. `hay-mcp` never builds an index
+and never asks a question — standard output is the protocol — so it refuses to
+start when the index is missing rather than answering every call with zero
+results. Run `hay index` first.
 
 The DuckDB MCP adapter validates the index at startup but does not keep the
 database file open while the server is idle. Each tool call opens a short-lived
