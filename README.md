@@ -38,7 +38,10 @@ retrieval-mode caveat are in [BENCHMARKS.md](./BENCHMARKS.md).
 
 Hay Seeker is available under the [MIT License](./LICENSE). Contributions are
 welcome; see [CONTRIBUTING.md](./CONTRIBUTING.md), and report security issues
-privately according to [SECURITY.md](./SECURITY.md).
+privately according to [SECURITY.md](./SECURITY.md). Coding agents and anyone
+looking for the exact commands, pull-request workflow, or
+[release and publish steps](./AGENTS.md#release) should read
+[AGENTS.md](./AGENTS.md).
 
 ## Try it
 

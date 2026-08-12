@@ -16,6 +16,24 @@ The verifier enforces formatting, strict Clippy checks, all workspace tests,
 doctests, and warning-free documentation. Tests that need a hosted provider or
 disposable Elasticsearch node must remain explicitly opt-in.
 
+## Pull requests
+
+Land every change as a pull request against `main` from a topic branch; do not
+push to `main` directly. Keep the change focused, use Conventional Commits, run
+`./scripts/verify.sh` and `gitleaks git . --redact` before opening the pull
+request, and describe the verification you actually ran plus the compatibility
+impact. The step-by-step workflow, including rebase and merge expectations, is
+in [AGENTS.md](./AGENTS.md#recommended-workflow-pull-requests); it applies to
+human contributors and coding agents alike.
+
+## Releasing
+
+Maintainers publish the workspace crates and the release binaries following the
+[release steps in AGENTS.md](./AGENTS.md#release): pre-flight verification,
+publishable manifest metadata, the workspace version bump,
+`cargo build --workspace --release --locked`, `cargo publish --workspace
+--dry-run --locked`, the real publish, and the tagged GitHub release.
+
 ## Compatibility expectations
 
 Changes to chunk identities, tokenizer or grammar versions, file eligibility,
