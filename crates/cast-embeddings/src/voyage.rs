@@ -105,7 +105,8 @@ impl VoyageEmbeddings {
         }
         let inner = HttpEmbeddingClient::new(HttpEmbeddingConfig {
             endpoint: config.endpoint,
-            bearer: config.api_key,
+            bearer: Some(config.api_key),
+            gateway_bearer: None,
             identity: EmbeddingIdentity {
                 provider: "voyage".into(),
                 model: config.model,

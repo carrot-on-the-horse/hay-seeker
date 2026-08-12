@@ -10,7 +10,12 @@
 //! use cast_embeddings::{OpenAiEmbeddings, OpenAiEmbeddingsConfig};
 //! use cast_index::Embedder;
 //!
-//! let embedder = OpenAiEmbeddings::new(OpenAiEmbeddingsConfig::new("test-key"))?;
+//! let config = OpenAiEmbeddingsConfig::through_cloudflare(
+//!     "https://gateway.ai.cloudflare.com/v1/account/gateway/openai/embeddings",
+//!     "gateway-run-token",
+//! )
+//! .with_api_key("openai-key");
+//! let embedder = OpenAiEmbeddings::new(config)?;
 //! assert_eq!(embedder.identity().provider, "openai");
 //! # Ok::<(), cast_embeddings::RemoteEmbeddingConfigError>(())
 //! ```

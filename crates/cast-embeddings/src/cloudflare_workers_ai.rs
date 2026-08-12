@@ -97,7 +97,8 @@ impl CloudflareWorkersAiEmbeddings {
         validate_endpoint(&endpoint, "api.cloudflare.com", &path)?;
         let inner = HttpEmbeddingClient::new(HttpEmbeddingConfig {
             endpoint,
-            bearer: config.api_token,
+            bearer: Some(config.api_token),
+            gateway_bearer: None,
             identity: EmbeddingIdentity {
                 provider: "cloudflare-workers-ai".into(),
                 model: CLOUDFLARE_WORKERS_AI_MODEL.into(),

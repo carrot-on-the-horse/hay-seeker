@@ -14,7 +14,7 @@ use cast_index::{DocumentId, Embedder, NormalizedPath};
 use clap::{Parser, ValueEnum};
 use hay_duckdb::DuckDbIndex;
 use hay_elasticsearch::{ElasticsearchConfig, ElasticsearchIndex};
-use hay_runtime::{EmbeddingProvider, SearchRuntime, StorageBackend};
+use hay_runtime::{EmbeddingProvider, SearchRuntime, StorageBackend, load_dotenv};
 use hay_search::{
     Candidate, Capabilities, DeterministicPhase0Retriever, IndexManifest, Query, Retriever,
     SearchDocument, SearchError, SearchOpts,
@@ -44,22 +44,54 @@ const MAX_CANDIDATE_LIMIT: usize = 1_000;
 )]
 struct Arguments {
     /// Search backend exposed through MCP.
-    #[arg(long, value_enum, default_value = "duckdb")]
+    #[arg(
+        long,
+        env = "COTH_HAY_SEEKER_BACKEND",
+        hide_env_values = true,
+        value_enum,
+        default_value = "duckdb"
+    )]
     backend: Backend,
     /// Optional dense embedding provider. Must match the indexed manifest.
-    #[arg(long, value_enum, default_value = "none")]
+    #[arg(
+        long,
+        env = "COTH_HAY_SEEKER_EMBEDDINGS",
+        hide_env_values = true,
+        value_enum,
+        default_value = "none"
+    )]
     embeddings: Embeddings,
     /// JSONL corpus used by the current Phase 0 search backend.
-    #[arg(long, default_value = "evals/corpus.jsonl")]
+    #[arg(
+        long,
+        env = "COTH_HAY_SEEKER_CORPUS",
+        hide_env_values = true,
+        default_value = "evals/corpus.jsonl"
+    )]
     corpus: PathBuf,
     /// Existing `DuckDB` index created by `hay index`.
-    #[arg(long, default_value = ".hay-seeker/index.duckdb")]
+    #[arg(
+        long,
+        env = "COTH_HAY_SEEKER_DATABASE",
+        hide_env_values = true,
+        default_value = ".hay-seeker/index.duckdb"
+    )]
     database: PathBuf,
     /// Elasticsearch base URL.
-    #[arg(long, default_value = "http://127.0.0.1:9200")]
+    #[arg(
+        long,
+        env = "COTH_HAY_SEEKER_ELASTICSEARCH_ENDPOINT",
+        hide_env_values = true,
+        default_value = "http://127.0.0.1:9200"
+    )]
     endpoint: String,
     /// Stable Elasticsearch index alias.
-    #[arg(long, default_value = "hay-seeker")]
+    #[arg(
+        long,
+        env = "COTH_HAY_SEEKER_ELASTICSEARCH_INDEX",
+        hide_env_values = true,
+        default_value = "hay-seeker"
+    )]
     index: String,
 }
 
@@ -544,7 +576,7 @@ fn search_runtime(backend: Backend, embeddings: Embeddings) -> Result<SearchRunt
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let _ = dotenvy::dotenv();
+    load_dotenv()?;
     let arguments = Arguments::parse();
     let server = match arguments.backend {
         Backend::Phase0 => {

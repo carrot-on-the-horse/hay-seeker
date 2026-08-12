@@ -40,11 +40,13 @@ cargo run --bin eval -- --backend elasticsearch --suite repos \
   --endpoint https://search.example.com --index hay-seeker-eval
 ```
 
-Add `--embeddings gemini` to either production backend to measure the shared
-hybrid cascade with the same provider and exact manifest used by `hay` and
-`hay-mcp`. This is intentionally opt-in because it transmits the complete
-evaluation corpus and queries to the configured Cloudflare AI Gateway. Use a
-disposable DuckDB path or Elasticsearch alias because the harness rebuilds it.
+Add `--embeddings gemini` or `--embeddings open-ai` to either production
+backend to measure the shared hybrid cascade with the same provider and exact
+manifest used by `hay` and `hay-mcp`. Both are intentionally opt-in because
+they transmit the complete evaluation corpus and queries externally. OpenAI
+can call the official API directly or use the provider-native
+`/v1/{account}/{gateway}/openai/embeddings` Cloudflare route. Use a disposable
+DuckDB path or Elasticsearch alias because the harness rebuilds it.
 
 The harness validates checkout revisions, rejects missing graded paths and
 unknown returned chunks, and reports aggregate and per-repository nDCG@10,
@@ -317,6 +319,35 @@ The result supports a fast hybrid option, not a claim that dense retrieval wins
 uniformly on this small 40-query repository suite. The evaluator peaked at
 1,456,816,128 bytes RSS because it holds the whole corpus and both result sets;
 that is harness telemetry, not the streamed product memory gate.
+
+### Static versus OpenAI comparison gate
+
+The evaluator can run the same frozen documents, queries, chunker, DuckDB
+backend, and metrics with Potion or OpenAI. Use separate databases because the
+embedding profile and route are manifest-bound:
+
+```bash
+HAY_LOCAL_STATIC_MODEL_DIR=/path/to/reviewed/potion-bundle \
+  cargo run --release -p hay-eval -- \
+  --backend duckdb --embeddings local-static --suite repos \
+  --database /path/to/disposable-static.duckdb
+
+COTH_HAY_SEEKER_CF_AIG_TOKEN=... \
+COTH_HAY_SEEKER_OPENAI_API_KEY=... \
+OPENAI_GATEWAY_URL=https://gateway.ai.cloudflare.com/v1/account/gateway/openai/embeddings \
+OPENAI_MODEL_REVISION=approved-revision \
+  cargo run --release -p hay-eval -- \
+  --backend duckdb --embeddings open-ai --suite repos \
+  --database /path/to/disposable-openai.duckdb
+```
+
+The example uses Cloudflare AI Gateway. Remove `OPENAI_GATEWAY_URL` and the
+Gateway token to benchmark the direct API with only
+`COTH_HAY_SEEKER_OPENAI_API_KEY`. For gateway BYOK or Unified Billing, omit the
+OpenAI key instead. Record nDCG@10, recall@50, MRR, total indexing and query
+time, provider or Gateway request/token counts and cost, and peak RSS. No live
+OpenAI result is committed yet, so the Potion measurements above remain
+standalone evidence rather than a claimed head-to-head win.
 
 ### Controlled ChunkHound 5.2.1 comparison
 

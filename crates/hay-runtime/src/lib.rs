@@ -14,6 +14,7 @@
 //! # Ok::<(), anyhow::Error>(())
 //! ```
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result, bail};
@@ -30,6 +31,23 @@ use cast_index::{
 };
 use hay_search::{IndexManifest, Quantization};
 use ring::digest::{SHA256, digest};
+
+/// Load the nearest `.env` file without overriding variables already exported
+/// by the parent process.
+///
+/// A missing file is a valid configuration. Parse and I/O errors are returned
+/// so executables never continue with an unexpectedly partial configuration.
+///
+/// # Errors
+///
+/// Returns an error when the discovered file cannot be read or parsed.
+pub fn load_dotenv() -> Result<Option<PathBuf>> {
+    match dotenvy::dotenv() {
+        Ok(path) => Ok(Some(path)),
+        Err(error) if error.not_found() => Ok(None),
+        Err(error) => Err(error).context("load .env configuration"),
+    }
+}
 
 /// Storage representation whose manifest is being constructed.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -151,8 +169,9 @@ impl SearchRuntime {
     }
 
     fn gemini(backend: StorageBackend) -> Result<Self> {
-        let token = std::env::var("CF_AIG_TOKEN")
-            .context("CF_AIG_TOKEN is required for Gemini (a Cloudflare AI Gateway Run token)")?;
+        let token = std::env::var("COTH_HAY_SEEKER_CF_AIG_TOKEN").context(
+            "COTH_HAY_SEEKER_CF_AIG_TOKEN is required for Gemini (a Cloudflare AI Gateway Run token)",
+        )?;
         let revision = required_revision("GEMINI_MODEL_REVISION", "Gemini")?;
         let endpoint = std::env::var("GEMINI_GATEWAY_URL")
             .context("GEMINI_GATEWAY_URL is required for Gemini")?;
@@ -173,21 +192,46 @@ impl SearchRuntime {
     }
 
     fn openai(backend: StorageBackend) -> Result<Self> {
-        let api_key = std::env::var("OPENAI_API_KEY").context("OPENAI_API_KEY is required")?;
         let revision = required_revision("OPENAI_MODEL_REVISION", "OpenAI")?;
         let model = std::env::var("OPENAI_EMBEDDING_MODEL")
             .unwrap_or_else(|_| cast_embeddings::OPENAI_DEFAULT_MODEL.into());
         let dimensions = environment_usize("OPENAI_EMBEDDING_DIMENSIONS", 768)?;
         let max_attempts = environment_usize("OPENAI_EMBEDDING_MAX_ATTEMPTS", 4)?;
-        let provider = OpenAiEmbeddings::new(
-            OpenAiEmbeddingsConfig::new(api_key)
-                .with_model(model)
-                .with_dimensions(dimensions),
-        )?;
+        let api_key = std::env::var("COTH_HAY_SEEKER_OPENAI_API_KEY")
+            .ok()
+            .filter(|value| !value.trim().is_empty());
+        let gateway_endpoint = std::env::var("OPENAI_GATEWAY_URL")
+            .ok()
+            .filter(|value| !value.trim().is_empty());
+        let (mut config, endpoint) = if let Some(endpoint) = gateway_endpoint {
+            let gateway_token = std::env::var("COTH_HAY_SEEKER_CF_AIG_TOKEN").context(
+                "COTH_HAY_SEEKER_CF_AIG_TOKEN is required when OPENAI_GATEWAY_URL is set",
+            )?;
+            (
+                OpenAiEmbeddingsConfig::through_cloudflare(endpoint.clone(), gateway_token),
+                endpoint,
+            )
+        } else {
+            let api_key = api_key
+                .as_deref()
+                .context("COTH_HAY_SEEKER_OPENAI_API_KEY is required for direct OpenAI")?;
+            (
+                OpenAiEmbeddingsConfig::direct(api_key),
+                cast_embeddings::OPENAI_EMBEDDINGS_ENDPOINT.into(),
+            )
+        };
+        if let Some(api_key) = api_key {
+            config = config.with_api_key(api_key);
+        }
+        config = config.with_model(model).with_dimensions(dimensions);
+        let provider = OpenAiEmbeddings::new(config)?;
         Ok(runtime(
             backend,
             retrying(provider, max_attempts)?,
-            &revision,
+            &format!(
+                "{revision};route-sha256:{}",
+                sha256_hex(endpoint.as_bytes())
+            ),
         ))
     }
 

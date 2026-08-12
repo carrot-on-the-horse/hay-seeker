@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use cast_index::{EmbeddingIdentity, EmbeddingVector, IndexError, IndexErrorKind, RetryAdvice};
 use reqwest::header::{HeaderMap, HeaderValue, RETRY_AFTER};
-use reqwest::{Client, StatusCode, Url};
+use reqwest::{Client, Request, StatusCode, Url};
 use serde::Deserialize;
 use serde_json::json;
 use thiserror::Error;
@@ -45,6 +45,9 @@ pub enum RemoteEmbeddingConfigError {
     /// The bearer token is blank or cannot be represented as a header.
     #[error("invalid embedding bearer token")]
     InvalidBearer,
+    /// The Cloudflare AI Gateway token is blank or cannot become a header.
+    #[error("invalid Cloudflare AI Gateway bearer token")]
+    InvalidGatewayBearer,
     /// A provider or model identifier is blank or malformed.
     #[error("invalid embedding provider or model identifier")]
     InvalidModel,
@@ -64,7 +67,8 @@ pub enum RemoteEmbeddingConfigError {
 
 pub(crate) struct HttpEmbeddingConfig {
     pub endpoint: String,
-    pub bearer: String,
+    pub bearer: Option<String>,
+    pub gateway_bearer: Option<String>,
     pub identity: EmbeddingIdentity,
     pub dialect: Dialect,
     pub timeout: Duration,
@@ -75,7 +79,8 @@ pub(crate) struct HttpEmbeddingConfig {
 pub(crate) struct HttpEmbeddingClient {
     client: Client,
     endpoint: Url,
-    authorization: HeaderValue,
+    authorization: Option<HeaderValue>,
+    gateway_authorization: Option<HeaderValue>,
     identity: EmbeddingIdentity,
     dialect: Dialect,
     error_prefix: &'static str,
@@ -108,14 +113,14 @@ impl HttpEmbeddingClient {
             .identity
             .validate()
             .map_err(|_| RemoteEmbeddingConfigError::InvalidModel)?;
-        let token = config.bearer.trim();
-        if token.is_empty() {
-            return Err(RemoteEmbeddingConfigError::InvalidBearer);
-        }
-        let token = token.strip_prefix("Bearer ").unwrap_or(token);
-        let mut authorization = HeaderValue::from_str(&format!("Bearer {token}"))
-            .map_err(|_| RemoteEmbeddingConfigError::InvalidBearer)?;
-        authorization.set_sensitive(true);
+        let authorization = config
+            .bearer
+            .map(|token| sensitive_bearer(&token, RemoteEmbeddingConfigError::InvalidBearer))
+            .transpose()?;
+        let gateway_authorization = config
+            .gateway_bearer
+            .map(|token| sensitive_bearer(&token, RemoteEmbeddingConfigError::InvalidGatewayBearer))
+            .transpose()?;
         let client = Client::builder()
             .timeout(config.timeout)
             .build()
@@ -124,6 +129,7 @@ impl HttpEmbeddingClient {
             client,
             endpoint,
             authorization,
+            gateway_authorization,
             identity: config.identity,
             dialect: config.dialect,
             error_prefix: config.error_prefix,
@@ -150,20 +156,7 @@ impl HttpEmbeddingClient {
                 format!("{} embedding input must not be empty", self.provider_name),
             ));
         }
-        let body = self.request_body(kind, texts);
-        let request = self
-            .client
-            .post(self.endpoint.clone())
-            .header("authorization", self.authorization.clone())
-            .json(&body)
-            .build()
-            .map_err(|_| {
-                self.error(
-                    IndexErrorKind::Configuration,
-                    "request_build",
-                    format!("could not build {} embedding request", self.provider_name),
-                )
-            })?;
+        let request = self.build_request(kind, texts)?;
         let response = self
             .client
             .execute(request)
@@ -234,6 +227,30 @@ impl HttpEmbeddingClient {
                 }),
             },
         }
+    }
+
+    pub(crate) fn build_request(
+        &self,
+        kind: InputKind,
+        texts: &[&str],
+    ) -> Result<Request, IndexError> {
+        let mut request = self.client.post(self.endpoint.clone());
+        if let Some(authorization) = &self.authorization {
+            request = request.header("authorization", authorization.clone());
+        }
+        if let Some(gateway_authorization) = &self.gateway_authorization {
+            request = request.header("cf-aig-authorization", gateway_authorization.clone());
+        }
+        request
+            .json(&self.request_body(kind, texts))
+            .build()
+            .map_err(|_| {
+                self.error(
+                    IndexErrorKind::Configuration,
+                    "request_build",
+                    format!("could not build {} embedding request", self.provider_name),
+                )
+            })
     }
 
     fn decode_indexed(&self, bytes: &[u8], expected: usize) -> Result<Vec<Vec<f32>>, IndexError> {
@@ -364,6 +381,20 @@ impl HttpEmbeddingClient {
     }
 }
 
+fn sensitive_bearer(
+    value: &str,
+    error: RemoteEmbeddingConfigError,
+) -> Result<HeaderValue, RemoteEmbeddingConfigError> {
+    let token = value.trim();
+    if token.is_empty() {
+        return Err(error);
+    }
+    let token = token.strip_prefix("Bearer ").unwrap_or(token);
+    let mut header = HeaderValue::from_str(&format!("Bearer {token}")).map_err(|_| error)?;
+    header.set_sensitive(true);
+    Ok(header)
+}
+
 #[derive(Debug, Deserialize)]
 struct IndexedResponse {
     data: Vec<IndexedEmbedding>,
@@ -437,7 +468,8 @@ mod tests {
     fn client(dialect: Dialect) -> HttpEmbeddingClient {
         HttpEmbeddingClient::new(HttpEmbeddingConfig {
             endpoint: "http://127.0.0.1:9/embeddings".into(),
-            bearer: "do-not-print".into(),
+            bearer: Some("do-not-print".into()),
+            gateway_bearer: None,
             identity: EmbeddingIdentity {
                 provider: "test".into(),
                 model: "test-model".into(),

@@ -21,7 +21,6 @@ anyhow.workspace = true
 cast-core.workspace = true
 cast-index.workspace = true
 clap.workspace = true
-dotenvy.workspace = true
 hay-duckdb.workspace = true
 hay-elasticsearch.workspace = true
 hay-runtime.workspace = true

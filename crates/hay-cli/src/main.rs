@@ -15,7 +15,7 @@ use cast_index::{DocumentId, Embedder, NormalizedPath};
 use clap::{Parser, Subcommand, ValueEnum};
 use hay_duckdb::DuckDbIndex;
 use hay_elasticsearch::{ElasticsearchConfig, ElasticsearchIndex};
-use hay_runtime::{EmbeddingProvider, SearchRuntime, StorageBackend};
+use hay_runtime::{EmbeddingProvider, SearchRuntime, StorageBackend, load_dotenv};
 use hay_search::{
     Candidate, IndexManifest, Query, Retriever, SearchDocument, SearchError, SearchOpts,
 };
@@ -43,64 +43,147 @@ enum Command {
     /// Atomically rebuild an index from JSONL or a CAST-chunked repository.
     Index {
         /// Storage backend.
-        #[arg(long, value_enum, default_value = "duckdb")]
+        #[arg(
+            long,
+            env = "COTH_HAY_SEEKER_BACKEND",
+            hide_env_values = true,
+            value_enum,
+            default_value = "duckdb"
+        )]
         backend: Backend,
         /// Optional dense embedding provider.
-        #[arg(long, value_enum, default_value = "none")]
+        #[arg(
+            long,
+            env = "COTH_HAY_SEEKER_EMBEDDINGS",
+            hide_env_values = true,
+            value_enum,
+            default_value = "none"
+        )]
         embeddings: Embeddings,
         /// Destination `DuckDB` file.
-        #[arg(long, default_value = ".hay-seeker/index.duckdb")]
+        #[arg(
+            long,
+            env = "COTH_HAY_SEEKER_DATABASE",
+            hide_env_values = true,
+            default_value = ".hay-seeker/index.duckdb"
+        )]
         database: PathBuf,
         /// Source JSONL containing `doc_id`, path, language, and text.
         #[arg(
             long,
+            env = "COTH_HAY_SEEKER_CORPUS",
+            hide_env_values = true,
             conflicts_with = "repository",
             required_unless_present = "repository"
         )]
         corpus: Option<PathBuf>,
         /// Git repository (or non-Git source directory) to scan and CAST-chunk.
         #[arg(long, conflicts_with = "corpus", required_unless_present = "corpus")]
+        #[arg(env = "COTH_HAY_SEEKER_REPOSITORY", hide_env_values = true)]
         repository: Option<PathBuf>,
         /// Incremental repository checkpoint (derived automatically when omitted).
-        #[arg(long, requires = "repository")]
+        #[arg(
+            long,
+            env = "COTH_HAY_SEEKER_CHECKPOINT",
+            hide_env_values = true,
+            requires = "repository"
+        )]
         checkpoint: Option<PathBuf>,
         /// Abort after this many seconds without a completed or skipped file.
-        #[arg(long, default_value_t = 600)]
+        #[arg(
+            long,
+            env = "COTH_HAY_SEEKER_STALL_TIMEOUT_SECONDS",
+            hide_env_values = true,
+            default_value_t = 600
+        )]
         stall_timeout_seconds: u64,
         /// Emit repository progress JSON to stderr at this interval.
-        #[arg(long, default_value_t = 5)]
+        #[arg(
+            long,
+            env = "COTH_HAY_SEEKER_PROGRESS_INTERVAL_SECONDS",
+            hide_env_values = true,
+            default_value_t = 5
+        )]
         progress_interval_seconds: u64,
         /// Elasticsearch base URL.
-        #[arg(long, default_value = "http://127.0.0.1:9200")]
+        #[arg(
+            long,
+            env = "COTH_HAY_SEEKER_ELASTICSEARCH_ENDPOINT",
+            hide_env_values = true,
+            default_value = "http://127.0.0.1:9200"
+        )]
         endpoint: String,
         /// Stable Elasticsearch index alias.
-        #[arg(long, default_value = "hay-seeker")]
+        #[arg(
+            long,
+            env = "COTH_HAY_SEEKER_ELASTICSEARCH_INDEX",
+            hide_env_values = true,
+            default_value = "hay-seeker"
+        )]
         index: String,
     },
     /// Search an existing local or remote index.
     Search {
         /// Storage backend.
-        #[arg(long, value_enum, default_value = "duckdb")]
+        #[arg(
+            long,
+            env = "COTH_HAY_SEEKER_BACKEND",
+            hide_env_values = true,
+            value_enum,
+            default_value = "duckdb"
+        )]
         backend: Backend,
         /// Must match the provider used when the index was built.
-        #[arg(long, value_enum, default_value = "none")]
+        #[arg(
+            long,
+            env = "COTH_HAY_SEEKER_EMBEDDINGS",
+            hide_env_values = true,
+            value_enum,
+            default_value = "none"
+        )]
         embeddings: Embeddings,
         /// `DuckDB` index file.
-        #[arg(long, default_value = ".hay-seeker/index.duckdb")]
+        #[arg(
+            long,
+            env = "COTH_HAY_SEEKER_DATABASE",
+            hide_env_values = true,
+            default_value = ".hay-seeker/index.duckdb"
+        )]
         database: PathBuf,
         /// Elasticsearch base URL.
-        #[arg(long, default_value = "http://127.0.0.1:9200")]
+        #[arg(
+            long,
+            env = "COTH_HAY_SEEKER_ELASTICSEARCH_ENDPOINT",
+            hide_env_values = true,
+            default_value = "http://127.0.0.1:9200"
+        )]
         endpoint: String,
         /// Stable Elasticsearch index alias.
-        #[arg(long, default_value = "hay-seeker")]
+        #[arg(
+            long,
+            env = "COTH_HAY_SEEKER_ELASTICSEARCH_INDEX",
+            hide_env_values = true,
+            default_value = "hay-seeker"
+        )]
         index: String,
         /// Number of final results.
-        #[arg(long, default_value_t = 10)]
+        #[arg(
+            long,
+            env = "COTH_HAY_SEEKER_TOP_K",
+            hide_env_values = true,
+            default_value_t = 10
+        )]
         top_k: usize,
         /// BM25/vector candidates retained before fusion.
-        #[arg(long, default_value_t = 50)]
+        #[arg(
+            long,
+            env = "COTH_HAY_SEEKER_CANDIDATE_LIMIT",
+            hide_env_values = true,
+            default_value_t = 50
+        )]
         candidate_limit: usize,
         /// Natural-language or code query.
+        #[arg(env = "COTH_HAY_SEEKER_QUERY", hide_env_values = true)]
         query: String,
     },
 }
@@ -159,7 +242,7 @@ struct SearchHit {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let _ = dotenvy::dotenv();
+    load_dotenv()?;
     match Arguments::parse().command {
         Command::Index {
             backend,
