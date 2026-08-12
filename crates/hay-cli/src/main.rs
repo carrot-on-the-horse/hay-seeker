@@ -12,10 +12,12 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result, bail};
 use cast_core::LanguageId;
 use cast_index::{DocumentId, Embedder, NormalizedPath};
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 use hay_duckdb::DuckDbIndex;
 use hay_elasticsearch::{ElasticsearchConfig, ElasticsearchIndex};
-use hay_runtime::{EmbeddingProvider, SearchRuntime, StorageBackend, load_dotenv};
+use hay_runtime::{
+    EmbeddingProvider, SearchRuntime, StorageBackend, ensure_models, load_dotenv, report_to_stderr,
+};
 use hay_search::{
     Candidate, IndexManifest, Query, Retriever, SearchDocument, SearchError, SearchOpts,
 };
@@ -51,15 +53,26 @@ enum Command {
             default_value = "duckdb"
         )]
         backend: Backend,
-        /// Optional dense embedding provider.
+        /// Dense embedding provider. `local-static` needs no credentials.
         #[arg(
             long,
             env = "COTH_HAY_SEEKER_EMBEDDINGS",
             hide_env_values = true,
             value_enum,
-            default_value = "none"
+            default_value = "local-static"
         )]
         embeddings: Embeddings,
+        /// Provision a missing local model bundle automatically.
+        #[arg(
+            long,
+            env = "COTH_HAY_SEEKER_DOWNLOAD_MODELS",
+            hide_env_values = true,
+            num_args = 0..=1,
+            default_value_t = true,
+            default_missing_value = "true",
+            action = ArgAction::Set
+        )]
+        download_models: bool,
         /// Destination `DuckDB` file.
         #[arg(
             long,
@@ -139,9 +152,20 @@ enum Command {
             env = "COTH_HAY_SEEKER_EMBEDDINGS",
             hide_env_values = true,
             value_enum,
-            default_value = "none"
+            default_value = "local-static"
         )]
         embeddings: Embeddings,
+        /// Provision a missing local model bundle automatically.
+        #[arg(
+            long,
+            env = "COTH_HAY_SEEKER_DOWNLOAD_MODELS",
+            hide_env_values = true,
+            num_args = 0..=1,
+            default_value_t = true,
+            default_missing_value = "true",
+            action = ArgAction::Set
+        )]
+        download_models: bool,
         /// `DuckDB` index file.
         #[arg(
             long,
@@ -247,6 +271,7 @@ async fn main() -> Result<()> {
         Command::Index {
             backend,
             embeddings,
+            download_models,
             database,
             corpus,
             repository,
@@ -258,7 +283,10 @@ async fn main() -> Result<()> {
         } => {
             index_source(
                 backend,
-                embeddings,
+                EmbeddingSelection {
+                    embeddings,
+                    download_models,
+                },
                 &database,
                 corpus.as_deref(),
                 repository.as_deref(),
@@ -273,6 +301,7 @@ async fn main() -> Result<()> {
         Command::Search {
             backend,
             embeddings,
+            download_models,
             database,
             endpoint,
             index,
@@ -282,7 +311,10 @@ async fn main() -> Result<()> {
         } => {
             search(
                 backend,
-                embeddings,
+                EmbeddingSelection {
+                    embeddings,
+                    download_models,
+                },
                 &database,
                 &endpoint,
                 &index,
@@ -293,6 +325,13 @@ async fn main() -> Result<()> {
             .await
         }
     }
+}
+
+/// Embedding provider plus whether its bundle may be provisioned on demand.
+#[derive(Clone, Copy, Debug)]
+struct EmbeddingSelection {
+    embeddings: Embeddings,
+    download_models: bool,
 }
 
 enum IndexDocuments {
@@ -308,7 +347,7 @@ enum IndexDocuments {
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 async fn index_source(
     backend: Backend,
-    embeddings: Embeddings,
+    selection: EmbeddingSelection,
     database: &Path,
     corpus: Option<&Path>,
     repository: Option<&Path>,
@@ -322,7 +361,7 @@ async fn index_source(
     let stall_timeout = positive_duration(stall_timeout_seconds, "stall-timeout-seconds")?;
     let progress_interval =
         positive_duration(progress_interval_seconds, "progress-interval-seconds")?;
-    let SearchRuntime { manifest, embedder } = search_runtime(backend, embeddings)?;
+    let SearchRuntime { manifest, embedder } = search_runtime(backend, selection).await?;
     let documents = match (corpus, repository) {
         (Some(corpus), None) => IndexDocuments::Corpus(load_corpus(corpus)?),
         (None, Some(repository)) => {
@@ -627,7 +666,7 @@ fn duration_millis(duration: Duration) -> u64 {
 #[allow(clippy::too_many_arguments)]
 async fn search(
     backend: Backend,
-    embeddings: Embeddings,
+    selection: EmbeddingSelection,
     database: &Path,
     endpoint: &str,
     index_alias: &str,
@@ -645,7 +684,7 @@ async fn search(
     };
     options.validate()?;
     let query = Query::new(query)?;
-    let SearchRuntime { manifest, embedder } = search_runtime(backend, embeddings)?;
+    let SearchRuntime { manifest, embedder } = search_runtime(backend, selection).await?;
     let (backend_name, candidates, indexed_documents) = match backend {
         Backend::Duckdb => {
             let index = DuckDbIndex::open(database, manifest, embedder)?;
@@ -711,22 +750,23 @@ fn elasticsearch(
     Ok(ElasticsearchIndex::new(config, manifest, embedder)?)
 }
 
-fn search_runtime(backend: Backend, embeddings: Embeddings) -> Result<SearchRuntime> {
-    SearchRuntime::from_env(
-        match backend {
-            Backend::Duckdb => StorageBackend::DuckDb,
-            Backend::Elasticsearch => StorageBackend::Elasticsearch,
-        },
-        match embeddings {
-            Embeddings::None => EmbeddingProvider::None,
-            Embeddings::LocalOnnx => EmbeddingProvider::LocalOnnx,
-            Embeddings::LocalStatic => EmbeddingProvider::LocalStatic,
-            Embeddings::Gemini => EmbeddingProvider::Gemini,
-            Embeddings::OpenAi => EmbeddingProvider::OpenAi,
-            Embeddings::Voyage => EmbeddingProvider::Voyage,
-            Embeddings::CloudflareWorkersAi => EmbeddingProvider::CloudflareWorkersAi,
-        },
-    )
+async fn search_runtime(backend: Backend, selection: EmbeddingSelection) -> Result<SearchRuntime> {
+    let backend = match backend {
+        Backend::Duckdb => StorageBackend::DuckDb,
+        Backend::Elasticsearch => StorageBackend::Elasticsearch,
+    };
+    let provider = match selection.embeddings {
+        Embeddings::None => EmbeddingProvider::None,
+        Embeddings::LocalOnnx => EmbeddingProvider::LocalOnnx,
+        Embeddings::LocalStatic => EmbeddingProvider::LocalStatic,
+        Embeddings::Gemini => EmbeddingProvider::Gemini,
+        Embeddings::OpenAi => EmbeddingProvider::OpenAi,
+        Embeddings::Voyage => EmbeddingProvider::Voyage,
+        Embeddings::CloudflareWorkersAi => EmbeddingProvider::CloudflareWorkersAi,
+    };
+    let models =
+        ensure_models(provider, selection.download_models, Some(&report_to_stderr)).await?;
+    SearchRuntime::from_env_with_models(backend, provider, &models)
 }
 
 fn sha256_hex(value: &[u8]) -> String {
