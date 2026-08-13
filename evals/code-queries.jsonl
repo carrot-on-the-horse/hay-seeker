@@ -1,0 +1,83 @@
+{"query": "how do we back off and retry a throttled HTTP request", "graded_doc_ids": {"retry-backoff-rust": 3, "retry-backoff-python": 3, "retry-backoff-go": 3, "retry-button-toast": 1}}
+{"query": "does the python uploader respect the Retry-After header", "graded_doc_ids": {"retry-backoff-python": 3, "retry-backoff-go": 1}}
+{"query": "stop retrying when the context is cancelled", "graded_doc_ids": {"retry-backoff-go": 3, "retry-backoff-rust": 1}}
+{"query": "which status codes are permanent and must not be retried", "graded_doc_ids": {"retry-backoff-rust": 3, "retry-backoff-python": 2, "retry-backoff-go": 2}}
+{"query": "rate limit requests with a burst allowance that refills over time", "graded_doc_ids": {"token-bucket-go": 3, "token-bucket-python": 3, "token-bucket-rust": 1}}
+{"query": "why does an idle limiter not build up an unlimited burst", "graded_doc_ids": {"token-bucket-go": 3, "token-bucket-python": 2}}
+{"query": "coarse per-IP throttling for abuse control", "graded_doc_ids": {"token-bucket-rust": 3, "token-bucket-go": 1}}
+{"query": "validate a JWT signature and reject expired tokens", "graded_doc_ids": {"jwt-verify-typescript": 3, "jwt-verify-php": 3}}
+{"query": "why allow clock skew when checking token expiry", "graded_doc_ids": {"jwt-verify-typescript": 3, "jwt-verify-php": 2}}
+{"query": "avoid leaking whether a token was forged or merely expired", "graded_doc_ids": {"jwt-verify-php": 3, "jwt-verify-typescript": 1}}
+{"query": "set a secure httponly session cookie", "graded_doc_ids": {"session-cookie-rotate-python": 3}}
+{"query": "paginate a list without skipping or repeating rows when new ones arrive", "graded_doc_ids": {"cursor-pagination-python": 3, "cursor-pagination-typescript": 2, "offset-pagination-go": 1}}
+{"query": "why does the cursor include the id as well as the timestamp", "graded_doc_ids": {"cursor-pagination-python": 3}}
+{"query": "load the next page of an infinite scrolling feed", "graded_doc_ids": {"cursor-pagination-typescript": 3, "cursor-pagination-python": 1}}
+{"query": "when is LIMIT OFFSET paging still acceptable", "graded_doc_ids": {"offset-pagination-go": 3, "cursor-pagination-python": 1}}
+{"query": "evict the least recently used entry when the cache is full", "graded_doc_ids": {"lru-cache-rust": 3, "lru-cache-java": 3, "ttl-cache-python": 1}}
+{"query": "cache entries that should expire after a while rather than on memory pressure", "graded_doc_ids": {"ttl-cache-python": 3, "lru-cache-rust": 1}}
+{"query": "use LinkedHashMap access order to bound a cache", "graded_doc_ids": {"lru-cache-java": 3}}
+{"query": "finish in-flight requests on SIGTERM before exiting", "graded_doc_ids": {"graceful-shutdown-go": 3, "shutdown-hook-java": 2, "graceful-shutdown-rust": 2}}
+{"query": "why commit the queue offset after handling instead of before", "graded_doc_ids": {"graceful-shutdown-rust": 3}}
+{"query": "log the tasks discarded when a thread pool is forced to stop", "graded_doc_ids": {"shutdown-hook-java": 3, "graceful-shutdown-go": 1}}
+{"query": "cut a string to a byte limit without breaking a multi-byte character", "graded_doc_ids": {"utf8-truncate-rust": 3, "utf8-truncate-python": 3, "utf8-validate-go": 1}}
+{"query": "why reject invalid UTF-8 instead of replacing the bad bytes", "graded_doc_ids": {"utf8-validate-go": 3}}
+{"query": "slicing a str panics on a character boundary", "graded_doc_ids": {"utf8-truncate-rust": 3, "utf8-truncate-python": 1}}
+{"query": "verify a downloaded file against a pinned sha256 before using it", "graded_doc_ids": {"checksum-verify-rust": 3, "checksum-verify-python": 3, "etag-cache-go": 1}}
+{"query": "why check the byte length in addition to the hash", "graded_doc_ids": {"checksum-verify-python": 3}}
+{"query": "delete the partial download when verification fails", "graded_doc_ids": {"checksum-verify-rust": 3, "checksum-verify-python": 3}}
+{"query": "revalidate a cached HTTP response without downloading it again", "graded_doc_ids": {"etag-cache-go": 3}}
+{"query": "what takes precedence between a command line flag, the environment, and a dotenv file", "graded_doc_ids": {"config-precedence-rust": 3, "config-precedence-python": 3, "feature-flag-typescript": 1}}
+{"query": "a stale dotenv file must not override injected container secrets", "graded_doc_ids": {"config-precedence-python": 3, "config-precedence-rust": 2}}
+{"query": "fail startup on a malformed configuration value instead of using the default", "graded_doc_ids": {"config-precedence-rust": 3}}
+{"query": "build time feature flags inlined by the bundler", "graded_doc_ids": {"feature-flag-typescript": 3}}
+{"query": "make a payment request safe to retry without double charging", "graded_doc_ids": {"idempotency-key-go": 3, "idempotency-client-typescript": 2, "dedupe-window-python": 1}}
+{"query": "reuse the same idempotency key when the client retries", "graded_doc_ids": {"idempotency-client-typescript": 3, "idempotency-key-go": 1}}
+{"query": "best effort duplicate suppression with a redis TTL", "graded_doc_ids": {"dedupe-window-python": 3}}
+{"query": "handle the unique constraint violation from a concurrent duplicate insert", "graded_doc_ids": {"idempotency-key-go": 3}}
+{"query": "stop calling a failing dependency and probe it before fully reopening", "graded_doc_ids": {"circuit-breaker-java": 3, "circuit-breaker-go": 2}}
+{"query": "why admit only one request while the breaker is half open", "graded_doc_ids": {"circuit-breaker-java": 3}}
+{"query": "trip on a failure ratio rather than an absolute failure count", "graded_doc_ids": {"circuit-breaker-go": 3, "circuit-breaker-java": 1}}
+{"query": "propagate the remaining time budget to downstream calls", "graded_doc_ids": {"timeout-budget-rust": 3}}
+{"query": "insert or update many rows efficiently in batches", "graded_doc_ids": {"batch-upsert-python": 3, "batch-upsert-go": 3, "bulk-delete-typescript": 1}}
+{"query": "keep a bulk load atomic so a failure halfway leaves no partial data", "graded_doc_ids": {"batch-upsert-python": 3, "batch-upsert-go": 1}}
+{"query": "delete old rows without holding a long lock", "graded_doc_ids": {"bulk-delete-typescript": 3}}
+{"query": "generate SQL placeholders instead of interpolating values", "graded_doc_ids": {"batch-upsert-go": 3}}
+{"query": "reconnect a dropped websocket with increasing delay", "graded_doc_ids": {"ws-reconnect-typescript": 3, "ws-heartbeat-python": 1}}
+{"query": "detect a peer that stopped responding on an open connection", "graded_doc_ids": {"ws-heartbeat-python": 3, "ws-reconnect-typescript": 1}}
+{"query": "why flush every server-sent event immediately", "graded_doc_ids": {"sse-stream-go": 3}}
+{"query": "avoid a thundering herd of clients reconnecting at once", "graded_doc_ids": {"ws-reconnect-typescript": 3, "ws-heartbeat-python": 1}}
+{"query": "let one bad row fail without aborting the whole import transaction", "graded_doc_ids": {"savepoint-python": 3, "retry-serialization-java": 1}}
+{"query": "avoid deadlocks when two transfers touch the same two accounts", "graded_doc_ids": {"transaction-rollback-php": 3}}
+{"query": "retry only the database errors that are safe to retry", "graded_doc_ids": {"retry-serialization-java": 3, "savepoint-python": 1}}
+{"query": "roll back and wrap the failure when a money transfer fails", "graded_doc_ids": {"transaction-rollback-php": 3, "savepoint-python": 1}}
+{"query": "prevent one user's save from overwriting another's concurrent edit", "graded_doc_ids": {"optimistic-lock-java": 3, "optimistic-lock-python": 3, "pessimistic-lock-go": 1}}
+{"query": "return 412 when the etag no longer matches", "graded_doc_ids": {"optimistic-lock-python": 3}}
+{"query": "when to take a row lock instead of using a version column", "graded_doc_ids": {"pessimistic-lock-go": 3, "optimistic-lock-java": 1}}
+{"query": "collapse a burst of file change events into a single rebuild", "graded_doc_ids": {"debounce-watch-rust": 3, "debounce-input-typescript": 2, "watch-ignore-python": 1}}
+{"query": "wait until the user stops typing before searching", "graded_doc_ids": {"debounce-input-typescript": 3, "debounce-watch-rust": 1}}
+{"query": "stop the watcher from triggering itself through build output", "graded_doc_ids": {"watch-ignore-python": 3}}
+{"query": "process a huge delimited file without loading it into memory", "graded_doc_ids": {"csv-stream-python": 3, "ndjson-stream-go": 3, "json-load-all-rust": 1}}
+{"query": "report the line number when a record fails to parse", "graded_doc_ids": {"ndjson-stream-go": 3, "csv-stream-python": 2}}
+{"query": "fail fast when a CSV column was renamed", "graded_doc_ids": {"csv-stream-python": 3}}
+{"query": "cap the size of a file that is read entirely into memory", "graded_doc_ids": {"json-load-all-rust": 3, "ndjson-stream-go": 1}}
+{"query": "hash a user password and upgrade the stored hash over time", "graded_doc_ids": {"password-hash-php": 3, "password-hash-python": 2}}
+{"query": "do not let response timing reveal whether an account exists", "graded_doc_ids": {"password-hash-python": 3, "password-hash-php": 1}}
+{"query": "why store API keys with a fast digest instead of argon2", "graded_doc_ids": {"api-key-hash-java": 3, "password-hash-php": 1}}
+{"query": "strip authorization headers and tokens out of logs", "graded_doc_ids": {"log-redaction-typescript": 3}}
+{"query": "attach a request id to every log line in async code", "graded_doc_ids": {"log-context-python": 3}}
+{"query": "keep a failing loop from flooding the log with identical lines", "graded_doc_ids": {"log-sampling-java": 3, "log-redaction-typescript": 1}}
+{"query": "why redact the structured record rather than the formatted message", "graded_doc_ids": {"log-redaction-typescript": 3}}
+{"query": "fail fast instead of blocking forever when the connection pool is empty", "graded_doc_ids": {"pool-checkout-java": 3, "pool-size-go": 1}}
+{"query": "make sure a database connection is always returned to the pool", "graded_doc_ids": {"pool-leak-python": 3, "pool-checkout-java": 1}}
+{"query": "why limit how long a pooled connection may live", "graded_doc_ids": {"pool-size-go": 3}}
+{"query": "discard a pooled connection the server already closed", "graded_doc_ids": {"pool-checkout-java": 3, "pool-size-go": 2}}
+{"query": "find where a value should be inserted in a sorted array", "graded_doc_ids": {"binary-search-rust": 3, "range-scan-go": 2, "linear-scan-python": 1}}
+{"query": "compute the midpoint without integer overflow", "graded_doc_ids": {"binary-search-rust": 3}}
+{"query": "select a range of sorted keys with two logarithmic probes", "graded_doc_ids": {"range-scan-go": 3, "binary-search-rust": 2}}
+{"query": "when a linear scan is the right choice over bisect", "graded_doc_ids": {"linear-scan-python": 3}}
+{"query": "stop two deployments from applying the same migration twice", "graded_doc_ids": {"migration-guard-python": 3}}
+{"query": "detect that an already applied migration file was modified", "graded_doc_ids": {"migration-checksum-rust": 3, "migration-guard-python": 1}}
+{"query": "backfill a column without holding locks for the whole table", "graded_doc_ids": {"backfill-batched-php": 3, "migration-guard-python": 1}}
+{"query": "compute the next run time of a cron expression across a daylight saving change", "graded_doc_ids": {"cron-parse-go": 3, "cron-overlap-python": 1}}
+{"query": "stop a slow periodic job from running twice at once", "graded_doc_ids": {"cron-overlap-python": 3, "cron-parse-go": 1}}
+{"query": "render a timestamp as a localized relative time", "graded_doc_ids": {"relative-time-typescript": 3}}

@@ -1,0 +1,32 @@
+{"query":"What metadata change forces rebuilding an existing index?","graded_doc_ids":{"manifest-compatibility":3,"failure-semantics":1}}
+{"query":"Which manifest fields must match the runtime exactly?","graded_doc_ids":{"manifest-compatibility":3}}
+{"query":"How do local and Elasticsearch backends share a search API?","graded_doc_ids":{"retriever-contract":3,"cascade-semantics":2}}
+{"query":"Where can I inspect lexical and dense evidence for a result?","graded_doc_ids":{"retriever-contract":3}}
+{"query":"When is a retrieval stage allowed to be skipped?","graded_doc_ids":{"cascade-semantics":3,"feature-gates":1}}
+{"query":"How are equal-scoring results ordered reproducibly?","graded_doc_ids":{"determinism":3,"cascade-semantics":2}}
+{"query":"How is Rust source code split into chunks?","graded_doc_ids":{"chunker-code":3,"source-coverage":1}}
+{"query":"Does the AST chunker preserve exact source offsets?","graded_doc_ids":{"chunker-code":3,"source-coverage":2}}
+{"query":"How are Markdown and plain text documents chunked?","graded_doc_ids":{"chunker-text":3}}
+{"query":"What are the default text window and overlap sizes?","graded_doc_ids":{"chunker-text":3}}
+{"query":"How does chunking avoid cutting a multibyte UTF-8 character?","graded_doc_ids":{"chunker-text":3,"source-coverage":2}}
+{"query":"Can the corpus scan repositories without loading everything into RAM?","graded_doc_ids":{"corpus-streaming":3,"backpressure":2}}
+{"query":"What fields identify a corpus document?","graded_doc_ids":{"corpus-streaming":3,"index-identity":1}}
+{"query":"Which offline retrieval quality metrics are reported?","graded_doc_ids":{"eval-metrics":3}}
+{"query":"How is graded relevance used for nDCG and recall?","graded_doc_ids":{"eval-metrics":3}}
+{"query":"What command evaluates the local backend?","graded_doc_ids":{"eval-command":3}}
+{"query":"How do I run the Elasticsearch-labelled Phase 0 evaluation?","graded_doc_ids":{"eval-command":3}}
+{"query":"Why is Phase 0 scoring random instead of BM25?","graded_doc_ids":{"phase0-boundary":3,"eval-command":2}}
+{"query":"Which retrieval algorithms are intentionally absent from the first phase?","graded_doc_ids":{"phase0-boundary":3,"feature-gates":1}}
+{"query":"What limits were retained from the old Go parser deployment?","graded_doc_ids":{"production-limits":3}}
+{"query":"How long may one Tree-sitter parse run?","graded_doc_ids":{"production-limits":3}}
+{"query":"How are repository paths and content hashes normalized?","graded_doc_ids":{"index-identity":3}}
+{"query":"When may the indexing checkpoint advance after writes?","graded_doc_ids":{"write-batch":3}}
+{"query":"How do I delete every indexed chunk belonging to one file?","graded_doc_ids":{"write-batch":3}}
+{"query":"Which errors belong in the library versus the CLI?","graded_doc_ids":{"failure-semantics":3,"rust-safety":1}}
+{"query":"How do we keep repeated evaluations deterministic?","graded_doc_ids":{"determinism":3}}
+{"query":"Is this project supposed to run as a REST search server?","graded_doc_ids":{"library-scope":3}}
+{"query":"How can minimal builds exclude future retrieval dependencies?","graded_doc_ids":{"feature-gates":3}}
+{"query":"What happens when a file language is unknown?","graded_doc_ids":{"language-resolution":3}}
+{"query":"Do chunk core ranges lose or duplicate source bytes?","graded_doc_ids":{"source-coverage":3}}
+{"query":"How does the indexing pipeline apply backpressure?","graded_doc_ids":{"backpressure":3,"corpus-streaming":2}}
+{"query":"What is the policy for unsafe Rust and unwrap in library code?","graded_doc_ids":{"rust-safety":3}}
