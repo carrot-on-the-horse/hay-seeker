@@ -15,13 +15,13 @@ use clap::{Parser, ValueEnum};
 use hay_duckdb::DuckDbIndex;
 use hay_elasticsearch::{ElasticsearchConfig, ElasticsearchIndex};
 use hay_runtime::{
-    BackendParityRuntime, EmbeddingProvider, SearchRuntime, StorageBackend, load_dotenv,
-    validate_backend_parity,
+    BackendParityRuntime, EmbeddingProvider, RerankProvider, SearchRuntime, StorageBackend,
+    load_dotenv, reranker_from_env, validate_backend_parity,
 };
 use hay_search::{
     Candidate, Chunker, ChunkerV1, CorpusDocument, DeterministicPhase0Retriever, FdeParams,
     IndexManifest, ManifestCheckedRetriever, Quantization, Query, Retriever, SearchDocument,
-    SearchError, SearchOpts,
+    SearchError, SearchOpts, rerank_candidates,
 };
 use serde::Deserialize;
 
@@ -44,6 +44,10 @@ struct Arguments {
 
     #[arg(long, value_enum, default_value = "seed")]
     suite: Suite,
+
+    /// Rerank the retrieved candidates before scoring.
+    #[arg(long, value_enum, default_value = "none")]
+    rerank: Rerank,
 
     #[arg(long)]
     eval_dir: Option<PathBuf>,
@@ -115,6 +119,12 @@ enum Embeddings {
     Gemini,
     OpenAi,
     Voyage,
+    CloudflareWorkersAi,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum Rerank {
+    None,
     CloudflareWorkersAi,
 }
 
@@ -207,6 +217,12 @@ async fn main() -> Result<()> {
     if matches!(arguments.backend, Backend::Chunkhound) {
         return run_chunkhound_evaluation(&arguments);
     }
+    let rerank_provider = match arguments.rerank {
+        Rerank::None => RerankProvider::None,
+        Rerank::CloudflareWorkersAi => RerankProvider::CloudflareWorkersAi,
+    };
+    let reranker = reranker_from_env(rerank_provider)?;
+
     let (mut loaded, cases) = match arguments.suite {
         Suite::Seed => {
             let documents = load_corpus(&arguments.corpus)?;
@@ -271,6 +287,7 @@ async fn main() -> Result<()> {
                 &cases,
                 arguments.suite,
                 &loaded.candidate_to_judgment,
+                RerankStage::new(reranker.as_deref(), &loaded.documents),
             )
             .await?;
             (
@@ -302,6 +319,7 @@ async fn main() -> Result<()> {
                 &cases,
                 arguments.suite,
                 &loaded.candidate_to_judgment,
+                RerankStage::new(reranker.as_deref(), &loaded.documents),
             )
             .await?;
             (
@@ -326,6 +344,7 @@ async fn main() -> Result<()> {
                 &cases,
                 arguments.suite,
                 &loaded.candidate_to_judgment,
+                RerankStage::new(reranker.as_deref(), &loaded.documents),
             )
             .await?;
             (
@@ -347,6 +366,7 @@ async fn main() -> Result<()> {
 
     println!("backend: {}", arguments.backend.label());
     println!("retriever: {retriever_label}");
+    println!("rerank: {}", rerank_label(reranker.as_deref()));
     println!("documents: {}", loaded.documents.len());
     println!("source_documents: {}", loaded.source_documents);
     for (reason, count) in &loaded.skips {
@@ -737,6 +757,7 @@ async fn run_backend_parity(
         cases,
         arguments.suite,
         &loaded.candidate_to_judgment,
+        RerankStage::disabled(),
     )
     .await?;
     drop(duckdb);
@@ -757,6 +778,7 @@ async fn run_backend_parity(
             cases,
             arguments.suite,
             &loaded.candidate_to_judgment,
+            RerankStage::disabled(),
         )
         .await?;
 
@@ -997,11 +1019,72 @@ const fn embedding_provider(embeddings: Embeddings) -> EmbeddingProvider {
     }
 }
 
+/// Names the reranker in the run's own output, so a recorded number carries the
+/// model and revision that ordered it.
+fn rerank_label(reranker: Option<&dyn cast_index::Reranker>) -> String {
+    reranker.map_or_else(
+        || "none".to_owned(),
+        |reranker| {
+            let identity = reranker.identity();
+            format!(
+                "{}/{} ({})",
+                identity.provider, identity.model, identity.revision
+            )
+        },
+    )
+}
+
+/// Optional reranking applied to each query's retrieved candidates.
+///
+/// Holds the passage text because a reranker scores the query against the
+/// passage itself; the evaluator already has every document in memory, so this
+/// costs no extra read.
+struct RerankStage<'a> {
+    reranker: Option<&'a dyn cast_index::Reranker>,
+    passages: BTreeMap<DocumentId, String>,
+}
+
+impl<'a> RerankStage<'a> {
+    fn disabled() -> Self {
+        Self {
+            reranker: None,
+            passages: BTreeMap::new(),
+        }
+    }
+
+    fn new(reranker: Option<&'a dyn cast_index::Reranker>, documents: &[SearchDocument]) -> Self {
+        let passages = reranker
+            .map(|_| {
+                documents
+                    .iter()
+                    .map(|document| (document.doc_id.clone(), document.text.clone()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        Self { reranker, passages }
+    }
+
+    async fn apply(
+        &self,
+        query: &Query,
+        candidates: Vec<Candidate>,
+        top_k: NonZeroUsize,
+    ) -> Result<Vec<Candidate>> {
+        match self.reranker {
+            None => Ok(candidates),
+            Some(reranker) => rerank_candidates(reranker, query, candidates, &self.passages, top_k)
+                .await
+                .map_err(anyhow::Error::new),
+        }
+    }
+}
+
 async fn evaluate_suite(
     retriever: &dyn Retriever,
     cases: &[EvalCase],
     suite: Suite,
     candidate_to_judgment: &BTreeMap<DocumentId, DocumentId>,
+    stage: RerankStage<'_>,
 ) -> Result<(Metrics, BTreeMap<String, Metrics>, Vec<Duration>)> {
     let options = SearchOpts {
         top_k: NonZeroUsize::new(50).unwrap_or(NonZeroUsize::MIN),
@@ -1016,6 +1099,10 @@ async fn evaluate_suite(
         let query = Query::new(&case.query)?;
         let started = Instant::now();
         let candidates = retriever.search(&query, &options).await?;
+        // Reranking reorders the retrieved set without shrinking it, so
+        // recall@50 stays a property of retrieval and only the ordering metrics
+        // move. Its latency belongs to the query, so it is timed with it.
+        let candidates = stage.apply(&query, candidates, options.top_k).await?;
         latencies.push(started.elapsed());
         let candidates = collapse_candidates(candidates, candidate_to_judgment)?;
         record_case_metrics(&mut metrics, &candidates, &case.graded_doc_ids);

@@ -19,7 +19,8 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result, bail};
 use cast_embeddings::{
-    CloudflareVertexGemini2, CloudflareVertexGemini2Config, CloudflareWorkersAiEmbeddings,
+    CloudflareReranker, CloudflareRerankerConfig, CloudflareVertexGemini2,
+    CloudflareVertexGemini2Config, CloudflareWorkersAiEmbeddings,
     CloudflareWorkersAiEmbeddingsConfig, GeminiQueryTask, LocalOnnxConfig, LocalOnnxEmbedder,
     LocalStaticConfig, LocalStaticEmbedder, OpenAiEmbeddings, OpenAiEmbeddingsConfig,
     POTION_CODE_16M_V2_PROFILE, RetryPolicy, RetryingEmbedder, STATIC_RETRIEVAL_MRL_EN_V1_PROFILE,
@@ -27,7 +28,7 @@ use cast_embeddings::{
 };
 use cast_index::{
     BoxFuture, Embedder, EmbeddingIdentity, EmbeddingInput, EmbeddingVector, IndexError,
-    IndexErrorKind,
+    IndexErrorKind, Reranker,
 };
 use hay_search::{IndexManifest, Quantization};
 use ring::digest::{SHA256, digest};
@@ -85,6 +86,46 @@ pub enum EmbeddingProvider {
     Voyage,
     /// `Cloudflare Workers AI` with Qwen3 embeddings.
     CloudflareWorkersAi,
+}
+
+/// Reranking model selected for a search process.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RerankProvider {
+    /// No reranking; the retriever's own ordering is final.
+    None,
+    /// `BAAI bge-reranker-base` hosted on `Cloudflare Workers AI`.
+    CloudflareWorkersAi,
+}
+
+/// Builds the selected reranker from the process environment.
+///
+/// Reranking reorders candidates a retriever already returned and never touches
+/// stored vectors, so it is absent from the index manifest: enabling or disabling
+/// it is not a reindex. The revision is still required, because two rankings
+/// produced by different reranker deployments are not comparable evidence.
+///
+/// # Errors
+///
+/// Returns an error when a required credential or the revision is absent, or
+/// when the resulting adapter configuration is invalid.
+pub fn reranker_from_env(provider: RerankProvider) -> Result<Option<Arc<dyn Reranker>>> {
+    match provider {
+        RerankProvider::None => Ok(None),
+        RerankProvider::CloudflareWorkersAi => {
+            let account_id = std::env::var("COTH_HAY_SEEKER_CLOUDFLARE_ACCOUNT_ID")
+                .context("COTH_HAY_SEEKER_CLOUDFLARE_ACCOUNT_ID is required for reranking")?;
+            let token = std::env::var("COTH_HAY_SEEKER_CLOUDFLARE_AI_TOKEN")
+                .context("COTH_HAY_SEEKER_CLOUDFLARE_AI_TOKEN is required for reranking")?;
+            let revision = required_revision(
+                "COTH_HAY_SEEKER_RERANK_MODEL_REVISION",
+                "the Workers AI reranker",
+            )?;
+            let reranker = CloudflareReranker::new(CloudflareRerankerConfig::new(
+                account_id, token, revision,
+            ))?;
+            Ok(Some(Arc::new(reranker)))
+        }
+    }
 }
 
 /// Exact manifest and optional query/document embedder for one process.

@@ -20,6 +20,7 @@
 //! # Ok::<(), cast_embeddings::RemoteEmbeddingConfigError>(())
 //! ```
 
+mod cloudflare_reranker;
 mod cloudflare_vertex_gemini;
 mod cloudflare_workers_ai;
 mod http;
@@ -31,6 +32,9 @@ mod openai;
 mod retry;
 mod voyage;
 
+pub use cloudflare_reranker::{
+    CLOUDFLARE_RERANKER_MODEL, CloudflareReranker, CloudflareRerankerConfig,
+};
 pub use cloudflare_vertex_gemini::{
     CloudflareVertexGemini2, CloudflareVertexGemini2Config, GeminiConfigError, GeminiQueryTask,
 };

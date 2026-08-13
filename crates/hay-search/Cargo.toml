@@ -22,6 +22,7 @@ serde.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
+tokio = { workspace = true }
 criterion.workspace = true
 futures.workspace = true
 
