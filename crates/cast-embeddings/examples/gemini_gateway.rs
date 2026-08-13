@@ -14,13 +14,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into(),
         );
     }
-    let endpoint = env::var("GEMINI_GATEWAY_URL")
-        .map_err(|_| "GEMINI_GATEWAY_URL is missing; add the complete gateway route to .env")?;
+    let endpoint = env::var("COTH_HAY_SEEKER_GEMINI_GATEWAY_URL").map_err(
+        |_| "COTH_HAY_SEEKER_GEMINI_GATEWAY_URL is missing; add the complete gateway route to .env",
+    )?;
     let mut config = CloudflareVertexGemini2Config::new(endpoint, token);
-    if let Ok(dimensions) = env::var("GEMINI_EMBEDDING_DIMENSIONS") {
+    if let Ok(dimensions) = env::var("COTH_HAY_SEEKER_GEMINI_EMBEDDING_DIMENSIONS") {
         config = config.with_dimensions(dimensions.parse()?);
     }
-    if let Ok(concurrency) = env::var("GEMINI_EMBEDDING_CONCURRENCY") {
+    if let Ok(concurrency) = env::var("COTH_HAY_SEEKER_GEMINI_EMBEDDING_CONCURRENCY") {
         config = config.with_max_concurrency(concurrency.parse()?);
     }
 

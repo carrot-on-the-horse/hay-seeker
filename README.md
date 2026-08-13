@@ -192,10 +192,18 @@ template is in [`.env.example`](./.env.example), and each command's `--help`
 output shows the variable accepted by every option without displaying its
 current value.
 
-Hay-specific Cloudflare and OpenAI credentials are namespaced as
-`COTH_HAY_SEEKER_CF_AIG_TOKEN` and `COTH_HAY_SEEKER_OPENAI_API_KEY`. Other
-provider credentials and model locations keep their provider-native names,
-such as `ELASTICSEARCH_API_KEY` and `HAY_LOCAL_MODEL_DIR`.
+Every variable Hay Seeker reads carries the `COTH_HAY_SEEKER_` prefix, without
+exception — provider credentials, endpoints, model revisions, and bundle
+directories alike, even where the provider's own documentation uses a bare name.
+A Voyage key is `COTH_HAY_SEEKER_VOYAGE_TOKEN`, not `VOYAGE_API_KEY`.
+
+The prefix is a correctness rule, not decoration. Bare names collide: a developer
+with several projects on one machine, or an exported shell variable from an
+unrelated tool, would otherwise hand this process someone else's credential,
+gateway URL, or model revision, and the run would look successful while pointing
+somewhere unintended. There is deliberately no fallback to the unprefixed name,
+because reading it back is the exact failure the prefix prevents. A missing
+variable fails closed and names the prefixed form it wants.
 
 #### Embedding model examples
 
@@ -213,13 +221,13 @@ provisioned automatically unless you stage it yourself or disable downloads:
 ```dotenv
 # Snowflake Arctic Embed m v2, Nomic v1.5, or EmbeddingGemma bundle
 COTH_HAY_SEEKER_EMBEDDINGS=local-onnx
-HAY_LOCAL_MODEL_DIR=/absolute/path/to/snowflake-arctic-bundle
+COTH_HAY_SEEKER_LOCAL_MODEL_DIR=/absolute/path/to/snowflake-arctic-bundle
 ```
 
 ```dotenv
 # Potion Code 16M v2 bundle
 COTH_HAY_SEEKER_EMBEDDINGS=local-static
-HAY_LOCAL_STATIC_MODEL_DIR=/absolute/path/to/potion-code-16m-v2
+COTH_HAY_SEEKER_LOCAL_STATIC_MODEL_DIR=/absolute/path/to/potion-code-16m-v2
 ```
 
 Gemini Embedding 2 runs through the complete Cloudflare AI Gateway Vertex
@@ -228,8 +236,8 @@ route. The token must have AI Gateway Run permission:
 ```dotenv
 COTH_HAY_SEEKER_EMBEDDINGS=gemini
 COTH_HAY_SEEKER_CF_AIG_TOKEN=replace-with-gateway-run-token
-GEMINI_MODEL_REVISION=approved-2026-08-11
-GEMINI_GATEWAY_URL=https://gateway.ai.cloudflare.com/v1/account/gateway/google-vertex-ai/v1/projects/project/locations/location/publishers/google/models/gemini-embedding-2:embedContent
+COTH_HAY_SEEKER_GEMINI_MODEL_REVISION=approved-2026-08-11
+COTH_HAY_SEEKER_GEMINI_GATEWAY_URL=https://gateway.ai.cloudflare.com/v1/account/gateway/google-vertex-ai/v1/projects/project/locations/location/publishers/google/models/gemini-embedding-2:embedContent
 ```
 
 The other hosted providers use their native credentials and require an
@@ -240,8 +248,8 @@ Direct OpenAI API:
 ```dotenv
 COTH_HAY_SEEKER_EMBEDDINGS=open-ai
 COTH_HAY_SEEKER_OPENAI_API_KEY=replace-with-api-key
-OPENAI_MODEL_REVISION=approved-2026-08-11
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+COTH_HAY_SEEKER_OPENAI_MODEL_REVISION=approved-2026-08-11
+COTH_HAY_SEEKER_OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 ```
 
 OpenAI through Cloudflare AI Gateway:
@@ -249,9 +257,9 @@ OpenAI through Cloudflare AI Gateway:
 ```dotenv
 COTH_HAY_SEEKER_EMBEDDINGS=open-ai
 COTH_HAY_SEEKER_CF_AIG_TOKEN=replace-with-gateway-run-token
-OPENAI_GATEWAY_URL=https://gateway.ai.cloudflare.com/v1/account/gateway/openai/embeddings
-OPENAI_MODEL_REVISION=approved-2026-08-11
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+COTH_HAY_SEEKER_OPENAI_GATEWAY_URL=https://gateway.ai.cloudflare.com/v1/account/gateway/openai/embeddings
+COTH_HAY_SEEKER_OPENAI_MODEL_REVISION=approved-2026-08-11
+COTH_HAY_SEEKER_OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 # Optional with Cloudflare BYOK or Unified Billing
 COTH_HAY_SEEKER_OPENAI_API_KEY=replace-with-api-key
 ```
@@ -259,17 +267,17 @@ COTH_HAY_SEEKER_OPENAI_API_KEY=replace-with-api-key
 ```dotenv
 # Voyage
 COTH_HAY_SEEKER_EMBEDDINGS=voyage
-VOYAGE_API_KEY=replace-with-api-key
-VOYAGE_MODEL_REVISION=approved-2026-08-11
-VOYAGE_EMBEDDING_MODEL=voyage-code-3
+COTH_HAY_SEEKER_VOYAGE_TOKEN=replace-with-api-key
+COTH_HAY_SEEKER_VOYAGE_MODEL_REVISION=approved-2026-08-11
+COTH_HAY_SEEKER_VOYAGE_EMBEDDING_MODEL=voyage-code-3
 ```
 
 ```dotenv
 # Cloudflare Workers AI
 COTH_HAY_SEEKER_EMBEDDINGS=cloudflare-workers-ai
-CLOUDFLARE_ACCOUNT_ID=replace-with-account-id
-CLOUDFLARE_AI_TOKEN=replace-with-api-token
-CLOUDFLARE_WORKERS_AI_MODEL_REVISION=approved-2026-08-11
+COTH_HAY_SEEKER_CLOUDFLARE_ACCOUNT_ID=replace-with-account-id
+COTH_HAY_SEEKER_CLOUDFLARE_AI_TOKEN=replace-with-api-token
+COTH_HAY_SEEKER_CLOUDFLARE_WORKERS_AI_MODEL_REVISION=approved-2026-08-11
 ```
 
 The optional dimension, concurrency, and retry controls for each provider are
@@ -358,7 +366,7 @@ exact manifests through the shared `hay-runtime` crate.
 ## Fully offline embeddings
 
 `--embeddings local-onnx` is the private, airplane-mode product path. Set
-`HAY_LOCAL_MODEL_DIR` to a checksum-pinned bundle following one of the reviewed
+`COTH_HAY_SEEKER_LOCAL_MODEL_DIR` to a checksum-pinned bundle following one of the reviewed
 contracts. [Snowflake Arctic Embed m v2](./models/snowflake-arctic-embed-m-v2.0/README.md)
 is the current acceptance candidate: it is Apache-2.0, ungated, and passed the
 seed 256d DuckDB / 768d Elasticsearch parity gate. The
@@ -367,7 +375,7 @@ seed 256d DuckDB / 768d Elasticsearch parity gate. The
 for comparison and caller-provisioned deployments.
 
 Hay verifies every artifact before loading it, and never downloads an ONNX
-bundle: `HAY_LOCAL_MODEL_DIR` must already exist. A bundle pins its exact graph
+bundle: `COTH_HAY_SEEKER_LOCAL_MODEL_DIR` must already exist. A bundle pins its exact graph
 inputs, output transform, retrieval prompts, and embedding profile as part of
 the index identity. Core ML is tried
 only when that exact graph declares compatibility; otherwise ONNX Runtime uses
@@ -393,7 +401,7 @@ embedding-profile identity makes old indexes fail closed instead of silently
 mixing representations.
 
 ```bash
-export HAY_LOCAL_MODEL_DIR=/absolute/path/to/snowflake-arctic-bundle
+export COTH_HAY_SEEKER_LOCAL_MODEL_DIR=/absolute/path/to/snowflake-arctic-bundle
 
 cargo run -p hay-cli -- index --backend duckdb --embeddings local-onnx \
   --database .hay-seeker/offline.duckdb --repository /path/to/repository
@@ -407,7 +415,7 @@ The matching MCP command is fully local as well:
 
 ```bash
 cargo build --release -p hay-mcp --locked
-HAY_LOCAL_MODEL_DIR=/absolute/path/to/snowflake-arctic-bundle \
+COTH_HAY_SEEKER_LOCAL_MODEL_DIR=/absolute/path/to/snowflake-arctic-bundle \
   target/release/hay-mcp --backend duckdb --embeddings local-onnx \
   --database /absolute/path/to/offline.duckdb
 ```
@@ -416,7 +424,7 @@ The equivalent static code-model cycle, with the bundle staged by hand rather
 than provisioned, is:
 
 ```bash
-export HAY_LOCAL_STATIC_MODEL_DIR=/absolute/path/to/potion-code-16m-v2
+export COTH_HAY_SEEKER_LOCAL_STATIC_MODEL_DIR=/absolute/path/to/potion-code-16m-v2
 cargo run -p hay-cli -- index --backend duckdb --embeddings local-static \
   --database .hay-seeker/code.duckdb --repository /path/to/repository
 cargo run -p hay-cli -- search --backend duckdb --embeddings local-static \
@@ -429,7 +437,7 @@ cargo run -p hay-cli -- search --backend duckdb --embeddings local-static \
 Potion Code 16M v2 bundle before they can open an index. They resolve one in a
 fixed order:
 
-1. `HAY_LOCAL_STATIC_MODEL_DIR`, when set. A staged bundle always wins and is
+1. `COTH_HAY_SEEKER_LOCAL_STATIC_MODEL_DIR`, when set. A staged bundle always wins and is
    never compared against the network.
 2. The per-user cache, when it already holds the pinned artifacts.
 3. A download, when `COTH_HAY_SEEKER_DOWNLOAD_MODELS` is true (the default).
@@ -448,7 +456,7 @@ HTTP is safe: it can serve the bytes faster, but it cannot serve different ones.
 | `COTH_HAY_SEEKER_DOWNLOAD_MODELS` | `true` | Allow provisioning. `false` fails with instructions instead of downloading. |
 | `COTH_HAY_SEEKER_MODEL_CACHE_DIR` | platform cache | Where bundles are stored. |
 | `COTH_HAY_SEEKER_MODEL_BASE_URL` | `https://huggingface.co` | Mirror or proxy to fetch from. |
-| `HAY_LOCAL_STATIC_MODEL_DIR` | unset | Use this staged bundle and skip provisioning entirely. |
+| `COTH_HAY_SEEKER_LOCAL_STATIC_MODEL_DIR` | unset | Use this staged bundle and skip provisioning entirely. |
 
 The default cache is `$XDG_CACHE_HOME/hay-seeker/models` (or `~/.cache`),
 `~/Library/Caches/hay-seeker/models` on macOS, and `%LOCALAPPDATA%\hay-seeker\models`
@@ -460,7 +468,7 @@ settings:
 
 ```bash
 export COTH_HAY_SEEKER_DOWNLOAD_MODELS=false
-export HAY_LOCAL_STATIC_MODEL_DIR=/absolute/path/to/potion-code-16m-v2
+export COTH_HAY_SEEKER_LOCAL_STATIC_MODEL_DIR=/absolute/path/to/potion-code-16m-v2
 ```
 
 A damaged cache repairs itself: an artifact whose length no longer matches the
@@ -526,7 +534,7 @@ The server publishes two typed tools:
 
 The default backend is `duckdb`; `--backend elasticsearch --endpoint ...
 --index ...` exposes the same tools over Elasticsearch. Authentication is read
-from `ELASTICSEARCH_API_KEY` or `ELASTICSEARCH_BEARER_TOKEN` in the environment
+from `COTH_HAY_SEEKER_ELASTICSEARCH_API_KEY` or `COTH_HAY_SEEKER_ELASTICSEARCH_BEARER_TOKEN` in the environment
 or `.env`. `--backend phase0 --corpus ...` remains only as a deterministic
 integration stub. Only JSON-RPC protocol messages are written to stdout;
 startup errors go to stderr.
@@ -547,7 +555,7 @@ from publishing an incremental update between requests.
 
 For an index created with dense embeddings, pass the same provider to MCP. For
 example, add `--embeddings gemini` for a Gemini-built index. The server loads
-`COTH_HAY_SEEKER_CF_AIG_TOKEN`, `GEMINI_MODEL_REVISION`, and the optional
+`COTH_HAY_SEEKER_CF_AIG_TOKEN`, `COTH_HAY_SEEKER_GEMINI_MODEL_REVISION`, and the optional
 Gemini tuning variables from `.env`, validates the exact stored manifest
 before serving, and reports a hybrid backend with dense capability enabled.
 
@@ -574,11 +582,11 @@ known. Hay never deletes a possibly live target merely because the response
 was lost.
 
 ```bash
-ELASTICSEARCH_API_KEY=... cargo run -p hay-cli -- index \
+COTH_HAY_SEEKER_ELASTICSEARCH_API_KEY=... cargo run -p hay-cli -- index \
   --backend elasticsearch --endpoint https://search.example.com \
   --index hay-seeker --repository /path/to/repository
 
-ELASTICSEARCH_API_KEY=... cargo run -p hay-cli -- search \
+COTH_HAY_SEEKER_ELASTICSEARCH_API_KEY=... cargo run -p hay-cli -- search \
   --backend elasticsearch --endpoint https://search.example.com \
   --index hay-seeker "where is manifest compatibility validated?"
 ```
@@ -590,8 +598,8 @@ embedding manifest differs from the runtime contract.
 Run the opt-in live lifecycle test only against a disposable alias:
 
 ```bash
-ELASTICSEARCH_TEST_URL=http://127.0.0.1:9200 \
-ELASTICSEARCH_TEST_INDEX=hay-seeker-live-test \
+COTH_HAY_SEEKER_ELASTICSEARCH_TEST_URL=http://127.0.0.1:9200 \
+COTH_HAY_SEEKER_ELASTICSEARCH_TEST_INDEX=hay-seeker-live-test \
 cargo test -p hay-elasticsearch --test live_cycle -- --ignored
 ```
 
@@ -644,7 +652,7 @@ cargo run -p cast-embeddings --example gemini_gateway -- \
 Run the complete CAST-to-ranking smoke path on the generated Go fixture:
 
 ```bash
-GEMINI_SMOKE_CHUNK_TOKENS=80 cargo run -p cast-embeddings \
+COTH_HAY_SEEKER_GEMINI_SMOKE_CHUNK_TOKENS=80 cargo run -p cast-embeddings \
   --example repo_smoke -- \
   crates/cast-embeddings/tests/fixtures/synthetic_routes.go \
   "where are API routes registered?"
@@ -665,20 +673,20 @@ timeout, HTTP 429, and upstream 5xx failures use at most four total attempts;
 other permanent request failures are never retried. A provider-neutral
 `RetryingEmbedder` orchestration wrapper owns attempts, jitter, and the total
 budget; the Gemini adapter only returns typed `RetryAdvice`. Set
-`GEMINI_EMBEDDING_MAX_ATTEMPTS` to a value from 1 through 10 to tune or disable
+`COTH_HAY_SEEKER_GEMINI_EMBEDDING_MAX_ATTEMPTS` to a value from 1 through 10 to tune or disable
 retries.
 
 The product index and query cycle enables that adapter with the same flag on
-both commands. `GEMINI_MODEL_REVISION` is deliberately required: use the
+both commands. `COTH_HAY_SEEKER_GEMINI_MODEL_REVISION` is deliberately required: use the
 deployment/model revision your team has approved, and change it whenever the
 provider-managed model changes.
 
 ```bash
-GEMINI_MODEL_REVISION=approved-2026-08-06 \
+COTH_HAY_SEEKER_GEMINI_MODEL_REVISION=approved-2026-08-06 \
 cargo run -p hay-cli -- index --backend duckdb --embeddings gemini \
   --database .hay-seeker/gemini.duckdb --repository /path/to/repository
 
-GEMINI_MODEL_REVISION=approved-2026-08-06 \
+COTH_HAY_SEEKER_GEMINI_MODEL_REVISION=approved-2026-08-06 \
 cargo run -p hay-cli -- search --backend duckdb --embeddings gemini \
   --database .hay-seeker/gemini.duckdb \
   "where are API routes registered?"
@@ -696,15 +704,15 @@ The same `Embedder` and manifest contracts support three additional adapters:
 
 | CLI value | Default model | Retrieval contract | Required environment |
 | --- | --- | --- | --- |
-| `open-ai` | `text-embedding-3-small`, 768 dimensions | Symmetric float embeddings, direct or through Cloudflare AI Gateway | `OPENAI_MODEL_REVISION`; direct requires `COTH_HAY_SEEKER_OPENAI_API_KEY`; gateway requires `COTH_HAY_SEEKER_CF_AIG_TOKEN` and `OPENAI_GATEWAY_URL` |
-| `voyage` | `voyage-code-3`, 1,024 dimensions | Provider-native `document` and `query` input types; truncation disabled | `VOYAGE_API_KEY`, `VOYAGE_MODEL_REVISION` |
-| `cloudflare-workers-ai` | `@cf/qwen/qwen3-embedding-0.6b`, 1,024 dimensions | Native document mode and code-search query instruction | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_TOKEN`, `CLOUDFLARE_WORKERS_AI_MODEL_REVISION` |
+| `open-ai` | `text-embedding-3-small`, 768 dimensions | Symmetric float embeddings, direct or through Cloudflare AI Gateway | `COTH_HAY_SEEKER_OPENAI_MODEL_REVISION`; direct requires `COTH_HAY_SEEKER_OPENAI_API_KEY`; gateway requires `COTH_HAY_SEEKER_CF_AIG_TOKEN` and `COTH_HAY_SEEKER_OPENAI_GATEWAY_URL` |
+| `voyage` | `voyage-code-3`, 1,024 dimensions | Provider-native `document` and `query` input types; truncation disabled | `COTH_HAY_SEEKER_VOYAGE_TOKEN`, `COTH_HAY_SEEKER_VOYAGE_MODEL_REVISION` |
+| `cloudflare-workers-ai` | `@cf/qwen/qwen3-embedding-0.6b`, 1,024 dimensions | Native document mode and code-search query instruction | `COTH_HAY_SEEKER_CLOUDFLARE_ACCOUNT_ID`, `COTH_HAY_SEEKER_CLOUDFLARE_AI_TOKEN`, `COTH_HAY_SEEKER_CLOUDFLARE_WORKERS_AI_MODEL_REVISION` |
 
 Each adapter batches without reordering output, rejects incomplete response
 indices or shapes, caps response bytes, redacts credentials from diagnostics,
 and returns the same retry classification consumed by `RetryingEmbedder`.
 Model revision is mandatory because hosted aliases can change without changing
-their names. Without `OPENAI_GATEWAY_URL`, OpenAI calls the official API
+their names. Without `COTH_HAY_SEEKER_OPENAI_GATEWAY_URL`, OpenAI calls the official API
 directly using `COTH_HAY_SEEKER_OPENAI_API_KEY`. When the gateway URL is set,
 `COTH_HAY_SEEKER_CF_AIG_TOKEN` is sent in `cf-aig-authorization`; the optional
 namespaced OpenAI key is sent separately in `Authorization`, or omitted for

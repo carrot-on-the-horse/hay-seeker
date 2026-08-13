@@ -8,12 +8,12 @@ use futures::executor::block_on;
 
 fn benchmark_local_encode(criterion: &mut Criterion) {
     dotenvy::dotenv().ok();
-    let Ok(bundle_dir) = std::env::var("HAY_LOCAL_MODEL_DIR") else {
-        eprintln!("skipping local_encode: HAY_LOCAL_MODEL_DIR is not set");
+    let Ok(bundle_dir) = std::env::var("COTH_HAY_SEEKER_LOCAL_MODEL_DIR") else {
+        eprintln!("skipping local_encode: COTH_HAY_SEEKER_LOCAL_MODEL_DIR is not set");
         return;
     };
     let embedder = LocalOnnxEmbedder::new(LocalOnnxConfig::new(bundle_dir))
-        .expect("HAY_LOCAL_MODEL_DIR must contain a valid pinned bundle");
+        .expect("COTH_HAY_SEEKER_LOCAL_MODEL_DIR must contain a valid pinned bundle");
     let texts = [
         "Validate the stored index manifest before retrieval.",
         "Apply changed files and deleted document IDs atomically.",

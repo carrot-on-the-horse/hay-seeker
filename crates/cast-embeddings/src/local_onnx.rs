@@ -26,6 +26,22 @@ const NOMIC_V1_5_PROFILE: &str = "nomic-embed-text-v1.5-search-mean-layernorm-mr
 const ARCTIC_M_V2_PROFILE: &str = "snowflake-arctic-embed-m-v2.0-query-cls-mrl-v1";
 const ARCTIC_M_V2_WINDOWED_PROFILE: &str =
     "snowflake-arctic-embed-m-v2.0-query-cls-max256-doc-window256-stride224-token-mean-mrl-v1";
+/// Research-only profile for `F2LLM v2 1.7B`, a `Qwen3`-based embedding model.
+///
+/// Not a product candidate: the checkpoint documents no Matryoshka support, so
+/// it is only permitted at its trained 2048-dimensional width, which is eight
+/// times the `DuckDB` product contract's 256 and needs
+/// `COTH_HAY_SEEKER_LOCAL_RESEARCH_DUCKDB_DIMENSIONS=2048`. Its 1.7B parameters also exceed
+/// the 1 GiB model-memory gate. It exists to measure whether a much larger
+/// embedding model changes repository-scale relevance at all.
+const F2LLM_V2_1_7B_PROFILE: &str = "f2llm-v2-1.7b-last-token-instruct-query-v1";
+/// The query instruction `F2LLM v2` ships in `config_sentence_transformers.json`.
+///
+/// Pinned verbatim rather than replaced with a code-specific instruction: this
+/// is the prompt the published checkpoint was evaluated with, and a different
+/// instruction is a separate measurement, not a formatting choice.
+const F2LLM_QUERY_PREFIX: &str =
+    "Instruct: Given a question, retrieve passages that can help answer the question.\nQuery: ";
 /// Exact inference profile for the official static retrieval research model.
 pub const STATIC_RETRIEVAL_MRL_EN_V1_PROFILE: &str =
     "sentence-transformers-static-retrieval-mrl-en-v1-nospecial-mean-mrl-v1";
@@ -717,6 +733,22 @@ impl BundleManifest {
                     && self.query_prefix == "query: " =>
             {
                 Ok(&[128, 256, 512, 768])
+            }
+            F2LLM_V2_1_7B_PROFILE
+                if self.output_transform == OutputTransform::FinalPooled
+                    && self.add_special_tokens
+                    && self.token_type_ids_name.is_none()
+                    && self.base_dimensions == 2_048
+                    && self.max_length == 2_048
+                    && self.document_window_overlap_tokens == 0
+                    && self.document_aggregation == DocumentAggregation::FirstWindow
+                    && self.document_prefix.is_empty()
+                    && self.query_prefix == F2LLM_QUERY_PREFIX =>
+            {
+                // Trained width only. The checkpoint documents no MRL, and
+                // truncating an unvalidated model is exactly how Nomic failed
+                // its parity gate.
+                Ok(&[2_048])
             }
             STATIC_RETRIEVAL_MRL_EN_V1_PROFILE
                 if self.output_transform == OutputTransform::FinalPooled

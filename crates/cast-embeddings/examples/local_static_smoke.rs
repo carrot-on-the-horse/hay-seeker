@@ -22,7 +22,7 @@ struct SmokeResult {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
-    let bundle_dir = std::env::var("HAY_LOCAL_STATIC_MODEL_DIR")?;
+    let bundle_dir = std::env::var("COTH_HAY_SEEKER_LOCAL_STATIC_MODEL_DIR")?;
     let startup = Instant::now();
     let embedder = LocalStaticEmbedder::new(LocalStaticConfig::new(bundle_dir))?;
     let startup_ms = milliseconds(startup.elapsed());

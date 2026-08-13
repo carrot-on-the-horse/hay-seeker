@@ -62,16 +62,17 @@ impl Embedder for TestEmbedder {
 /// Exercises create, bulk, alias swap, manifest validation, search, and mget
 /// against an explicitly supplied disposable Elasticsearch alias.
 #[tokio::test]
-#[ignore = "requires ELASTICSEARCH_TEST_URL and a disposable ELASTICSEARCH_TEST_INDEX"]
+#[ignore = "requires COTH_HAY_SEEKER_ELASTICSEARCH_TEST_URL and a disposable COTH_HAY_SEEKER_ELASTICSEARCH_TEST_INDEX"]
 #[allow(clippy::too_many_lines)]
 async fn live_elasticsearch_full_cycle() {
-    let endpoint = std::env::var("ELASTICSEARCH_TEST_URL").expect("ELASTICSEARCH_TEST_URL");
-    let alias =
-        std::env::var("ELASTICSEARCH_TEST_INDEX").expect("ELASTICSEARCH_TEST_INDEX is disposable");
+    let endpoint = std::env::var("COTH_HAY_SEEKER_ELASTICSEARCH_TEST_URL")
+        .expect("COTH_HAY_SEEKER_ELASTICSEARCH_TEST_URL");
+    let alias = std::env::var("COTH_HAY_SEEKER_ELASTICSEARCH_TEST_INDEX")
+        .expect("COTH_HAY_SEEKER_ELASTICSEARCH_TEST_INDEX is disposable");
     let mut config = ElasticsearchConfig::new(&endpoint, &alias);
-    if let Ok(api_key) = std::env::var("ELASTICSEARCH_API_KEY") {
+    if let Ok(api_key) = std::env::var("COTH_HAY_SEEKER_ELASTICSEARCH_API_KEY") {
         config = config.with_api_key(api_key);
-    } else if let Ok(token) = std::env::var("ELASTICSEARCH_BEARER_TOKEN") {
+    } else if let Ok(token) = std::env::var("COTH_HAY_SEEKER_ELASTICSEARCH_BEARER_TOKEN") {
         config = config.with_bearer_token(token);
     }
     let index = ElasticsearchIndex::new(config, IndexManifest::lexical_v1(), None).unwrap();
@@ -172,9 +173,9 @@ async fn live_elasticsearch_full_cycle() {
     assert!((1..=2).contains(&index.physical_generation_count().await.unwrap()));
 
     let mut dense_config = ElasticsearchConfig::new(&endpoint, format!("{alias}-dense"));
-    if let Ok(api_key) = std::env::var("ELASTICSEARCH_API_KEY") {
+    if let Ok(api_key) = std::env::var("COTH_HAY_SEEKER_ELASTICSEARCH_API_KEY") {
         dense_config = dense_config.with_api_key(api_key);
-    } else if let Ok(token) = std::env::var("ELASTICSEARCH_BEARER_TOKEN") {
+    } else if let Ok(token) = std::env::var("COTH_HAY_SEEKER_ELASTICSEARCH_BEARER_TOKEN") {
         dense_config = dense_config.with_bearer_token(token);
     }
     let embedder: Arc<dyn Embedder> = Arc::new(TestEmbedder::new());

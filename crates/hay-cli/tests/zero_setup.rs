@@ -20,7 +20,7 @@ const ISOLATED_ENV_VARS: &[&str] = &[
     "COTH_HAY_SEEKER_EMBEDDINGS",
     "COTH_HAY_SEEKER_QUERY",
     "COTH_HAY_SEEKER_REPOSITORY",
-    "HAY_LOCAL_STATIC_MODEL_DIR",
+    "COTH_HAY_SEEKER_LOCAL_STATIC_MODEL_DIR",
 ];
 
 /// Builds an isolated, offline `hay` invocation rooted at `current_dir`.
