@@ -23,8 +23,9 @@ use cast_embeddings::{
     CloudflareVertexGemini2Config, CloudflareWorkersAiEmbeddings,
     CloudflareWorkersAiEmbeddingsConfig, GeminiQueryTask, LocalOnnxConfig, LocalOnnxEmbedder,
     LocalStaticConfig, LocalStaticEmbedder, OpenAiEmbeddings, OpenAiEmbeddingsConfig,
-    POTION_CODE_16M_V2_PROFILE, RetryPolicy, RetryingEmbedder, STATIC_RETRIEVAL_MRL_EN_V1_PROFILE,
-    VOYAGE_DEFAULT_MODEL, VoyageEmbeddings, VoyageEmbeddingsConfig, WorkersAiModel,
+    POTION_CODE_16M_V2_PROFILE, RetryPolicy, RetryingEmbedder, RetryingReranker,
+    STATIC_RETRIEVAL_MRL_EN_V1_PROFILE, VOYAGE_DEFAULT_MODEL, VoyageEmbeddings,
+    VoyageEmbeddingsConfig, VoyageReranker, VoyageRerankerConfig, WorkersAiModel,
 };
 use cast_index::{
     BoxFuture, Embedder, EmbeddingIdentity, EmbeddingInput, EmbeddingVector, IndexError,
@@ -95,6 +96,8 @@ pub enum RerankProvider {
     None,
     /// `BAAI bge-reranker-base` hosted on `Cloudflare Workers AI`.
     CloudflareWorkersAi,
+    /// `Voyage`'s hosted reranking model.
+    Voyage,
 }
 
 /// Builds the selected reranker from the process environment.
@@ -123,9 +126,33 @@ pub fn reranker_from_env(provider: RerankProvider) -> Result<Option<Arc<dyn Rera
             let reranker = CloudflareReranker::new(CloudflareRerankerConfig::new(
                 account_id, token, revision,
             ))?;
-            Ok(Some(Arc::new(reranker)))
+            Ok(Some(retrying_reranker(reranker)?))
+        }
+        RerankProvider::Voyage => {
+            let api_key = std::env::var("COTH_HAY_SEEKER_VOYAGE_TOKEN")
+                .context("COTH_HAY_SEEKER_VOYAGE_TOKEN is required for Voyage reranking")?;
+            let revision = required_revision(
+                "COTH_HAY_SEEKER_RERANK_MODEL_REVISION",
+                "the Voyage reranker",
+            )?;
+            let mut config = VoyageRerankerConfig::new(api_key, revision);
+            if let Ok(model) = std::env::var("COTH_HAY_SEEKER_VOYAGE_RERANK_MODEL") {
+                let model = model.trim().to_owned();
+                if !model.is_empty() {
+                    config = config.with_model(model);
+                }
+            }
+            Ok(Some(retrying_reranker(VoyageReranker::new(config)?)?))
         }
     }
+}
+
+/// Wraps a reranker so a throttled or briefly unavailable provider costs a
+/// delay rather than a query's entire ranking.
+fn retrying_reranker<R: Reranker + 'static>(reranker: R) -> Result<Arc<dyn Reranker>> {
+    let max_attempts = environment_usize("COTH_HAY_SEEKER_RERANK_MAX_ATTEMPTS", 4)?;
+    let policy = RetryPolicy::with_max_attempts(max_attempts)?;
+    Ok(Arc::new(RetryingReranker::new(reranker, policy)))
 }
 
 /// Exact manifest and optional query/document embedder for one process.

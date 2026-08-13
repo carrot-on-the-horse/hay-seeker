@@ -126,6 +126,7 @@ enum Embeddings {
 enum Rerank {
     None,
     CloudflareWorkersAi,
+    Voyage,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
@@ -220,6 +221,7 @@ async fn main() -> Result<()> {
     let rerank_provider = match arguments.rerank {
         Rerank::None => RerankProvider::None,
         Rerank::CloudflareWorkersAi => RerankProvider::CloudflareWorkersAi,
+        Rerank::Voyage => RerankProvider::Voyage,
     };
     let reranker = reranker_from_env(rerank_provider)?;
 
