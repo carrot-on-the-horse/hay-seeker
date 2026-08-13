@@ -32,10 +32,11 @@ mod retry;
 mod voyage;
 
 pub use cloudflare_vertex_gemini::{
-    CloudflareVertexGemini2, CloudflareVertexGemini2Config, GeminiConfigError,
+    CloudflareVertexGemini2, CloudflareVertexGemini2Config, GeminiConfigError, GeminiQueryTask,
 };
 pub use cloudflare_workers_ai::{
-    CLOUDFLARE_WORKERS_AI_MODEL, CloudflareWorkersAiEmbeddings, CloudflareWorkersAiEmbeddingsConfig,
+    CLOUDFLARE_EMBEDDINGGEMMA_MODEL, COTH_HAY_SEEKER_CLOUDFLARE_WORKERS_AI_MODEL,
+    CloudflareWorkersAiEmbeddings, CloudflareWorkersAiEmbeddingsConfig, WorkersAiModel,
 };
 pub use http::RemoteEmbeddingConfigError;
 pub use local_onnx::{

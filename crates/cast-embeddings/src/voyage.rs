@@ -7,7 +7,7 @@ use cast_index::{
 
 use crate::http::{
     Dialect, HttpEmbeddingClient, HttpEmbeddingConfig, InputKind, RemoteEmbeddingConfigError,
-    validate_endpoint,
+    RequestLimits, validate_endpoint,
 };
 
 /// Official `Voyage` text-embeddings endpoint.
@@ -114,6 +114,15 @@ impl VoyageEmbeddings {
                 profile: RETRIEVAL_PROFILE.into(),
             },
             dialect: Dialect::Voyage,
+            // Voyage rejects a batch over 120k tokens outright rather than
+            // embedding a prefix. Measured against this corpus, Go source runs
+            // about 1.41 characters per token, so the bound is expressed in
+            // characters at a pessimistic one-to-one: 100k characters cannot
+            // exceed 100k tokens whatever the input looks like.
+            limits: RequestLimits {
+                max_texts: 64,
+                max_chars: 100_000,
+            },
             timeout: config.timeout,
             error_prefix: "voyage",
             provider_name: "Voyage",

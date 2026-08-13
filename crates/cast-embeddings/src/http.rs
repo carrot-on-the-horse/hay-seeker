@@ -31,6 +31,11 @@ pub(crate) enum Dialect {
     OpenAi,
     Voyage,
     CloudflareQwen,
+    /// Workers AI's generic `{"text": [...]}` embedding route.
+    ///
+    /// The route has no task-type field and applies any prompt template the
+    /// hosted model needs on its own side, so inputs travel verbatim.
+    CloudflareText,
 }
 
 /// Invalid configuration shared by hosted embedding adapters.
@@ -65,12 +70,30 @@ pub enum RemoteEmbeddingConfigError {
     HttpClient,
 }
 
+/// Upper bounds one request to this provider may not exceed.
+///
+/// A caller hands the `Embedder` contract however many documents its storage
+/// backend batches, and that batch is sized for storage, not for a provider's
+/// request limits. Sixty short fixtures fit anywhere; a hundred and twenty-eight
+/// six-kilobyte source chunks do not, and the provider answers 400 or 500 rather
+/// than embedding a prefix. The adapter therefore splits the batch itself.
+///
+/// `max_chars` stands in for a token budget deliberately: an exact count would
+/// need each provider's tokenizer, and a conservative character bound is both
+/// cheap and impossible to get subtly wrong.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct RequestLimits {
+    pub max_texts: usize,
+    pub max_chars: usize,
+}
+
 pub(crate) struct HttpEmbeddingConfig {
     pub endpoint: String,
     pub bearer: Option<String>,
     pub gateway_bearer: Option<String>,
     pub identity: EmbeddingIdentity,
     pub dialect: Dialect,
+    pub limits: RequestLimits,
     pub timeout: Duration,
     pub error_prefix: &'static str,
     pub provider_name: &'static str,
@@ -83,6 +106,7 @@ pub(crate) struct HttpEmbeddingClient {
     gateway_authorization: Option<HeaderValue>,
     identity: EmbeddingIdentity,
     dialect: Dialect,
+    limits: RequestLimits,
     error_prefix: &'static str,
     provider_name: &'static str,
 }
@@ -132,6 +156,7 @@ impl HttpEmbeddingClient {
             gateway_authorization,
             identity: config.identity,
             dialect: config.dialect,
+            limits: config.limits,
             error_prefix: config.error_prefix,
             provider_name: config.provider_name,
         })
@@ -139,6 +164,12 @@ impl HttpEmbeddingClient {
 
     pub(crate) fn identity(&self) -> &EmbeddingIdentity {
         &self.identity
+    }
+
+    /// Resolved request URL, so an adapter can assert its own route.
+    #[cfg(test)]
+    pub(crate) fn endpoint_for_tests(&self) -> &str {
+        self.endpoint.as_str()
     }
 
     pub(crate) async fn embed(
@@ -156,6 +187,43 @@ impl HttpEmbeddingClient {
                 format!("{} embedding input must not be empty", self.provider_name),
             ));
         }
+        let mut vectors = Vec::with_capacity(texts.len());
+        for window in self.split(texts) {
+            vectors.extend(self.embed_one_request(kind, window).await?);
+        }
+        Ok(vectors)
+    }
+
+    /// Splits a caller's batch into request-sized windows.
+    ///
+    /// A single text over the character bound still travels alone: rejecting it
+    /// here would refuse a document the provider may well accept, and its own
+    /// error is more accurate than a guess made from character counts.
+    fn split<'a>(&self, texts: &'a [&'a str]) -> Vec<&'a [&'a str]> {
+        let mut windows = Vec::new();
+        let mut start = 0;
+        while start < texts.len() {
+            let mut end = start;
+            let mut chars = 0;
+            while end < texts.len() && end - start < self.limits.max_texts {
+                let next = chars + texts[end].chars().count();
+                if end > start && next > self.limits.max_chars {
+                    break;
+                }
+                chars = next;
+                end += 1;
+            }
+            windows.push(&texts[start..end]);
+            start = end;
+        }
+        windows
+    }
+
+    async fn embed_one_request(
+        &self,
+        kind: InputKind,
+        texts: &[&str],
+    ) -> Result<Vec<EmbeddingVector>, IndexError> {
         let request = self.build_request(kind, texts)?;
         let response = self
             .client
@@ -182,7 +250,9 @@ impl HttpEmbeddingClient {
         }
         let values = match self.dialect {
             Dialect::OpenAi | Dialect::Voyage => self.decode_indexed(&bytes, texts.len())?,
-            Dialect::CloudflareQwen => self.decode_cloudflare(&bytes, texts.len())?,
+            Dialect::CloudflareQwen | Dialect::CloudflareText => {
+                self.decode_cloudflare(&bytes, texts.len())?
+            }
         };
         values
             .into_iter()
@@ -226,6 +296,7 @@ impl HttpEmbeddingClient {
                     "instruction": "Given a code search query, retrieve relevant source code passages that answer the query"
                 }),
             },
+            Dialect::CloudflareText => json!({ "text": texts }),
         }
     }
 
@@ -477,6 +548,10 @@ mod tests {
                 profile: "test-profile".into(),
             },
             dialect,
+            limits: RequestLimits {
+                max_texts: 128,
+                max_chars: 500_000,
+            },
             timeout: Duration::from_secs(1),
             error_prefix: "test",
             provider_name: "Test provider",

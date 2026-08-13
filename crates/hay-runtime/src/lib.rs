@@ -20,10 +20,10 @@ use std::sync::Arc;
 use anyhow::{Context, Result, bail};
 use cast_embeddings::{
     CloudflareVertexGemini2, CloudflareVertexGemini2Config, CloudflareWorkersAiEmbeddings,
-    CloudflareWorkersAiEmbeddingsConfig, LocalOnnxConfig, LocalOnnxEmbedder, LocalStaticConfig,
-    LocalStaticEmbedder, OpenAiEmbeddings, OpenAiEmbeddingsConfig, POTION_CODE_16M_V2_PROFILE,
-    RetryPolicy, RetryingEmbedder, STATIC_RETRIEVAL_MRL_EN_V1_PROFILE, VOYAGE_DEFAULT_MODEL,
-    VoyageEmbeddings, VoyageEmbeddingsConfig,
+    CloudflareWorkersAiEmbeddingsConfig, GeminiQueryTask, LocalOnnxConfig, LocalOnnxEmbedder,
+    LocalStaticConfig, LocalStaticEmbedder, OpenAiEmbeddings, OpenAiEmbeddingsConfig,
+    POTION_CODE_16M_V2_PROFILE, RetryPolicy, RetryingEmbedder, STATIC_RETRIEVAL_MRL_EN_V1_PROFILE,
+    VOYAGE_DEFAULT_MODEL, VoyageEmbeddings, VoyageEmbeddingsConfig, WorkersAiModel,
 };
 use cast_index::{
     BoxFuture, Embedder, EmbeddingIdentity, EmbeddingInput, EmbeddingVector, IndexError,
@@ -161,8 +161,16 @@ impl SearchRuntime {
     fn local_onnx(backend: StorageBackend) -> Result<Self> {
         let bundle_dir = std::env::var("COTH_HAY_SEEKER_LOCAL_MODEL_DIR")
             .context("COTH_HAY_SEEKER_LOCAL_MODEL_DIR is required for local ONNX embeddings")?;
+        // The product contract stores 256 MRL dimensions in DuckDB and the
+        // checkpoint's full width in Elasticsearch. Both are overridable for
+        // research only: comparing a local checkpoint against the same model on
+        // a hosted route needs equal widths, and a checkpoint with no validated
+        // MRL support can only be measured at its trained width. The bundle's
+        // own allowlist still rejects a width its profile never trained.
         let stored_dimensions = match backend {
-            StorageBackend::DuckDb => 256,
+            StorageBackend::DuckDb => {
+                environment_usize("COTH_HAY_SEEKER_LOCAL_RESEARCH_DUCKDB_DIMENSIONS", 256)?
+            }
             StorageBackend::Elasticsearch => environment_usize(
                 "COTH_HAY_SEEKER_LOCAL_RESEARCH_ELASTICSEARCH_DIMENSIONS",
                 768,
@@ -213,7 +221,9 @@ impl SearchRuntime {
         let dimensions = environment_usize("COTH_HAY_SEEKER_GEMINI_EMBEDDING_DIMENSIONS", 768)?;
         let concurrency = environment_usize("COTH_HAY_SEEKER_GEMINI_EMBEDDING_CONCURRENCY", 8)?;
         let max_attempts = environment_usize("COTH_HAY_SEEKER_GEMINI_EMBEDDING_MAX_ATTEMPTS", 4)?;
+        let query_task = gemini_query_task()?;
         let config = CloudflareVertexGemini2Config::new(endpoint.clone(), token)
+            .with_query_task(query_task)
             .with_dimensions(dimensions)
             .with_max_concurrency(concurrency);
         let provider = CloudflareVertexGemini2::new(config)?;
@@ -300,8 +310,9 @@ impl SearchRuntime {
             "Cloudflare Workers AI",
         )?;
         let max_attempts = environment_usize("COTH_HAY_SEEKER_CLOUDFLARE_AI_MAX_ATTEMPTS", 4)?;
+        let model = workers_ai_model()?;
         let provider = CloudflareWorkersAiEmbeddings::new(
-            CloudflareWorkersAiEmbeddingsConfig::new(account_id, token),
+            CloudflareWorkersAiEmbeddingsConfig::new(account_id, token).with_model(model),
         )?;
         Ok(runtime(
             backend,
@@ -690,6 +701,59 @@ fn runtime(
         manifest,
         embedder: Some(embedder),
     }
+}
+
+/// Selects the retrieval task named in Gemini Embedding 2's query prefix.
+///
+/// Defaults to general retrieval so an existing index keeps its identity.
+/// `code-retrieval` names the code-specific task the model documents; because
+/// the task travels in the query text, switching it changes the embedding
+/// profile and therefore requires a reindex.
+///
+/// # Errors
+///
+/// Returns an error naming the accepted values for an unrecognized task.
+fn gemini_query_task() -> Result<GeminiQueryTask> {
+    let Some(name) = std::env::var("COTH_HAY_SEEKER_GEMINI_QUERY_TASK")
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(GeminiQueryTask::default());
+    };
+    GeminiQueryTask::parse(&name).with_context(|| {
+        format!(
+            "COTH_HAY_SEEKER_GEMINI_QUERY_TASK={name} is not a Gemini Embedding 2 retrieval task; \
+             use search-result or code-retrieval"
+        )
+    })
+}
+
+/// Selects which `Workers AI` embedding model to open.
+///
+/// Defaults to `Qwen3 Embedding 0.6B`, the model this adapter shipped with, so
+/// an existing configuration keeps its index identity. Each model carries its
+/// own width and retrieval prompt into the manifest, so switching this value is
+/// a reindex — which the required revision variable already makes explicit.
+///
+/// # Errors
+///
+/// Returns an error naming the accepted values when the requested model has no
+/// verified contract in this build.
+fn workers_ai_model() -> Result<WorkersAiModel> {
+    let Some(name) = std::env::var("COTH_HAY_SEEKER_CLOUDFLARE_WORKERS_AI_MODEL")
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(WorkersAiModel::default());
+    };
+    WorkersAiModel::parse(&name).with_context(|| {
+        format!(
+            "COTH_HAY_SEEKER_CLOUDFLARE_WORKERS_AI_MODEL={name} is not a verified Workers AI embedding model; \
+             use qwen3-embedding-0.6b or embeddinggemma-300m"
+        )
+    })
 }
 
 fn required_revision(name: &'static str, provider: &str) -> Result<String> {

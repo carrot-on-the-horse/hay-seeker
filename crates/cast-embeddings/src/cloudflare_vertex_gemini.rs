@@ -16,6 +16,7 @@ use thiserror::Error;
 const PROVIDER_ID: &str = "cloudflare-ai-gateway/google-vertex-ai";
 const MODEL_ID: &str = "gemini-embedding-2";
 const RETRIEVAL_PROFILE: &str = "gemini-embedding-2-retrieval-prefix-v1";
+const CODE_RETRIEVAL_PROFILE: &str = "gemini-embedding-2-code-retrieval-prefix-v1";
 const DEFAULT_DIMENSIONS: usize = 768;
 const MIN_DIMENSIONS: usize = 128;
 const MAX_DIMENSIONS: usize = 3_072;
@@ -28,8 +29,57 @@ pub struct CloudflareVertexGemini2Config {
     endpoint: String,
     gateway_bearer: String,
     dimensions: usize,
+    query_task: GeminiQueryTask,
     max_concurrency: usize,
     timeout: Duration,
+}
+
+/// Retrieval task named in Gemini Embedding 2's query prefix.
+///
+/// Gemini Embedding 2 replaced the older `taskType` field with a versioned text
+/// prefix, so the task is part of the query string and therefore part of the
+/// relevance contract. Each task gets its own embedding profile: vectors built
+/// under one task must never be searched with another, and the manifest is what
+/// enforces that.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum GeminiQueryTask {
+    /// General retrieval: `task: search result | query: ...`.
+    #[default]
+    SearchResult,
+    /// Code-specific retrieval: `task: code retrieval | query: ...`.
+    CodeRetrieval,
+}
+
+impl GeminiQueryTask {
+    /// Parses the task selector accepted by configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GeminiConfigError::InvalidQueryTask`] for an unrecognized name
+    /// rather than silently falling back to general retrieval.
+    pub fn parse(name: &str) -> Result<Self, GeminiConfigError> {
+        match name.trim() {
+            "search-result" | "search result" => Ok(Self::SearchResult),
+            "code-retrieval" | "code retrieval" => Ok(Self::CodeRetrieval),
+            _ => Err(GeminiConfigError::InvalidQueryTask),
+        }
+    }
+
+    const fn query_prefix(self) -> &'static str {
+        match self {
+            Self::SearchResult => "task: search result | query: ",
+            Self::CodeRetrieval => "task: code retrieval | query: ",
+        }
+    }
+
+    /// Embedding profile recorded in the index manifest for this task.
+    #[must_use]
+    pub const fn profile(self) -> &'static str {
+        match self {
+            Self::SearchResult => RETRIEVAL_PROFILE,
+            Self::CodeRetrieval => CODE_RETRIEVAL_PROFILE,
+        }
+    }
 }
 
 impl CloudflareVertexGemini2Config {
@@ -41,6 +91,7 @@ impl CloudflareVertexGemini2Config {
             endpoint: endpoint.into(),
             gateway_bearer: gateway_bearer.into(),
             dimensions: DEFAULT_DIMENSIONS,
+            query_task: GeminiQueryTask::SearchResult,
             max_concurrency: DEFAULT_MAX_CONCURRENCY,
             timeout: Duration::from_secs(30),
         }
@@ -58,6 +109,13 @@ impl CloudflareVertexGemini2Config {
     #[must_use]
     pub const fn with_dimensions(mut self, dimensions: usize) -> Self {
         self.dimensions = dimensions;
+        self
+    }
+
+    /// Selects the retrieval task named in the query prefix.
+    #[must_use]
+    pub const fn with_query_task(mut self, query_task: GeminiQueryTask) -> Self {
+        self.query_task = query_task;
         self
     }
 
@@ -84,6 +142,7 @@ impl fmt::Debug for CloudflareVertexGemini2Config {
             .field("endpoint", &self.endpoint)
             .field("gateway_bearer", &"[REDACTED]")
             .field("dimensions", &self.dimensions)
+            .field("query_task", &self.query_task)
             .field("max_concurrency", &self.max_concurrency)
             .field("timeout", &self.timeout)
             .finish()
@@ -111,6 +170,9 @@ pub enum GeminiConfigError {
     /// A zero timeout would make every request fail immediately.
     #[error("Gemini gateway timeout must be greater than zero")]
     InvalidTimeout,
+    /// The query task name is not one this adapter has a prefix for.
+    #[error("invalid Gemini query task")]
+    InvalidQueryTask,
     /// The HTTP client could not be constructed.
     #[error("could not construct Gemini gateway HTTP client")]
     HttpClient,
@@ -122,6 +184,7 @@ pub struct CloudflareVertexGemini2 {
     endpoint: Url,
     gateway_authorization: HeaderValue,
     identity: EmbeddingIdentity,
+    query_task: GeminiQueryTask,
     max_concurrency: usize,
 }
 
@@ -148,6 +211,7 @@ impl CloudflareVertexGemini2 {
             endpoint,
             gateway_bearer,
             dimensions,
+            query_task,
             max_concurrency,
             timeout,
         } = config;
@@ -189,8 +253,9 @@ impl CloudflareVertexGemini2 {
                 provider: PROVIDER_ID.into(),
                 model: MODEL_ID.into(),
                 dimensions,
-                profile: RETRIEVAL_PROFILE.into(),
+                profile: query_task.profile().into(),
             },
+            query_task,
             max_concurrency,
         })
     }
@@ -294,7 +359,7 @@ impl CloudflareVertexGemini2 {
             content: Content {
                 role: "user",
                 parts: [Part {
-                    text: kind.format(text),
+                    text: kind.format(text, self.query_task),
                 }],
             },
             output_dimensionality: self.identity.dimensions,
@@ -362,10 +427,10 @@ enum InputKind {
 }
 
 impl InputKind {
-    fn format(self, text: &str) -> String {
+    fn format(self, text: &str, query_task: GeminiQueryTask) -> String {
         match self {
             Self::Document => format!("title: none | text: {text}"),
-            Self::Query => format!("task: search result | query: {text}"),
+            Self::Query => format!("{}{text}", query_task.query_prefix()),
         }
     }
 }
@@ -550,6 +615,40 @@ mod tests {
             "task: search result | query: where is chunking configured?"
         );
         assert!(json.get("taskType").is_none());
+    }
+
+    /// A code-retrieval index and a general-retrieval index must be
+    /// distinguishable by manifest, not just by the prefix they happened to use.
+    #[test]
+    fn the_code_retrieval_task_changes_both_the_prefix_and_the_profile() {
+        let adapter = CloudflareVertexGemini2::new(
+            CloudflareVertexGemini2Config::new(TEST_ENDPOINT, "token")
+                .with_query_task(GeminiQueryTask::CodeRetrieval),
+        )
+        .unwrap();
+
+        assert_eq!(
+            InputKind::Query.format(
+                "where is chunking configured?",
+                GeminiQueryTask::CodeRetrieval
+            ),
+            "task: code retrieval | query: where is chunking configured?"
+        );
+        assert_eq!(
+            InputKind::Document.format("fn main() {}", GeminiQueryTask::CodeRetrieval),
+            "title: none | text: fn main() {}",
+            "the document prefix does not carry a task"
+        );
+        assert_eq!(adapter.identity().profile, CODE_RETRIEVAL_PROFILE);
+        assert_ne!(CODE_RETRIEVAL_PROFILE, RETRIEVAL_PROFILE);
+    }
+
+    #[test]
+    fn an_unknown_query_task_is_refused() {
+        assert!(GeminiQueryTask::parse("code-retrieval").is_ok());
+        assert!(GeminiQueryTask::parse("search-result").is_ok());
+        assert!(GeminiQueryTask::parse("question answering").is_err());
+        assert_eq!(GeminiQueryTask::default(), GeminiQueryTask::SearchResult);
     }
 
     #[test]

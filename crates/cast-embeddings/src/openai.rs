@@ -7,7 +7,7 @@ use cast_index::{
 
 use crate::http::{
     Dialect, HttpEmbeddingClient, HttpEmbeddingConfig, InputKind, RemoteEmbeddingConfigError,
-    validate_endpoint,
+    RequestLimits, validate_endpoint,
 };
 
 /// Default `OpenAI` model selected by the provider adapter.
@@ -144,6 +144,12 @@ impl OpenAiEmbeddings {
                 profile: RETRIEVAL_PROFILE.into(),
             },
             dialect: Dialect::OpenAi,
+            // OpenAI's per-request token ceiling is high; these bounds only stop a
+            // pathological batch from being assembled at all.
+            limits: RequestLimits {
+                max_texts: 256,
+                max_chars: 600_000,
+            },
             timeout: config.timeout,
             error_prefix: "openai",
             provider_name: "OpenAI",
