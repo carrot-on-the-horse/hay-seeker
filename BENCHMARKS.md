@@ -212,7 +212,7 @@ comfortably below the 100 ms query budget. The measured local-model encoding
 and process-startup costs are recorded below.
 
 The model-side acceptance tools use generated strings and activate when
-`HAY_LOCAL_MODEL_DIR` points to a reviewed bundle:
+`COTH_HAY_SEEKER_LOCAL_MODEL_DIR` points to a reviewed bundle:
 
 ```bash
 cargo run -p cast-embeddings --example local_onnx_smoke
@@ -327,21 +327,21 @@ backend, and metrics with Potion or OpenAI. Use separate databases because the
 embedding profile and route are manifest-bound:
 
 ```bash
-HAY_LOCAL_STATIC_MODEL_DIR=/path/to/reviewed/potion-bundle \
+COTH_HAY_SEEKER_LOCAL_STATIC_MODEL_DIR=/path/to/reviewed/potion-bundle \
   cargo run --release -p hay-eval -- \
   --backend duckdb --embeddings local-static --suite repos \
   --database /path/to/disposable-static.duckdb
 
 COTH_HAY_SEEKER_CF_AIG_TOKEN=... \
 COTH_HAY_SEEKER_OPENAI_API_KEY=... \
-OPENAI_GATEWAY_URL=https://gateway.ai.cloudflare.com/v1/account/gateway/openai/embeddings \
-OPENAI_MODEL_REVISION=approved-revision \
+COTH_HAY_SEEKER_OPENAI_GATEWAY_URL=https://gateway.ai.cloudflare.com/v1/account/gateway/openai/embeddings \
+COTH_HAY_SEEKER_OPENAI_MODEL_REVISION=approved-revision \
   cargo run --release -p hay-eval -- \
   --backend duckdb --embeddings open-ai --suite repos \
   --database /path/to/disposable-openai.duckdb
 ```
 
-The example uses Cloudflare AI Gateway. Remove `OPENAI_GATEWAY_URL` and the
+The example uses Cloudflare AI Gateway. Remove `COTH_HAY_SEEKER_OPENAI_GATEWAY_URL` and the
 Gateway token to benchmark the direct API with only
 `COTH_HAY_SEEKER_OPENAI_API_KEY`. For gateway BYOK or Unified Billing, omit the
 OpenAI key instead. Record nDCG@10, recall@50, MRR, total indexing and query
@@ -375,7 +375,7 @@ UV_CACHE_DIR=/private/tmp/hay-chunkhound-uv-cache \
   uv pip install --python /private/tmp/hay-chunkhound-5.2.1/bin/python \
   'chunkhound==5.2.1'
 
-HAY_LOCAL_STATIC_MODEL_DIR=/path/to/reviewed/potion-bundle \
+COTH_HAY_SEEKER_LOCAL_STATIC_MODEL_DIR=/path/to/reviewed/potion-bundle \
   cargo run --release -p cast-embeddings --example openai_static_server
 
 /private/tmp/hay-chunkhound-5.2.1/bin/chunkhound index \
@@ -462,7 +462,7 @@ Django and WordPress and across the controlled completed subset. Hay's separate
 actual cold CLI sample was 190 ms; it is not promoted to a p50/p95 distribution.
 
 ```bash
-HAY_LOCAL_STATIC_MODEL_DIR=/path/to/reviewed/potion-bundle \
+COTH_HAY_SEEKER_LOCAL_STATIC_MODEL_DIR=/path/to/reviewed/potion-bundle \
   cargo run --release --bin eval -- \
   --backend duckdb --embeddings local-static --suite repos \
   --database /path/to/completed/repos.duckdb --reuse-duckdb-index
@@ -534,7 +534,7 @@ Criterion measures one representative production file from each repository:
 cargo bench -p hay-search --bench repository_chunking
 ```
 
-Set `HAY_BENCH_REPOS` when the checkouts are elsewhere. A ten-sample development
+Set `COTH_HAY_SEEKER_BENCH_REPOS` when the checkouts are elsewhere. A ten-sample development
 run of the earlier generic fixed-window path produced:
 
 | Corpus file | Median time | Approximate throughput |
@@ -607,7 +607,7 @@ batch, query embedding, and cosine-ranking path without transmitting local or
 third-party repository source:
 
 ```bash
-GEMINI_SMOKE_CHUNK_TOKENS=80 cargo run -p cast-embeddings \
+COTH_HAY_SEEKER_GEMINI_SMOKE_CHUNK_TOKENS=80 cargo run -p cast-embeddings \
   --example repo_smoke -- \
   crates/cast-embeddings/tests/fixtures/synthetic_routes.go \
   "where are API routes registered?"

@@ -10,7 +10,7 @@ The manifest pins official revision
 `95c2741480856aa9666782eb4afe11959938017f`, the published int8 ONNX graph,
 the matching tokenizer, and both SHA-256 digests. Download `onnx/model_int8.onnx`
 and `tokenizer.json` from that exact revision, copy `bundle.example.json` to
-`bundle.json`, and point `HAY_LOCAL_MODEL_DIR` at the resulting directory.
+`bundle.json`, and point `COTH_HAY_SEEKER_LOCAL_MODEL_DIR` at the resulting directory.
 
 The graph already exposes its final 768-dimensional `sentence_embedding`.
 Hay applies Snowflake's documented `query: ` prefix only to queries. Queries

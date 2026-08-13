@@ -47,9 +47,9 @@ struct EmbeddingUsage {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
-    let bundle_dir = std::env::var("HAY_LOCAL_STATIC_MODEL_DIR")?;
-    let address =
-        std::env::var("HAY_OPENAI_STATIC_ADDRESS").unwrap_or_else(|_| "127.0.0.1:11435".into());
+    let bundle_dir = std::env::var("COTH_HAY_SEEKER_LOCAL_STATIC_MODEL_DIR")?;
+    let address = std::env::var("COTH_HAY_SEEKER_OPENAI_STATIC_ADDRESS")
+        .unwrap_or_else(|_| "127.0.0.1:11435".into());
     let address: SocketAddr = address.parse()?;
     if !address.ip().is_loopback() {
         return Err("benchmark adapter must bind to a loopback address".into());

@@ -654,9 +654,9 @@ async fn main() -> Result<()> {
             )
             .await?;
             let mut config = ElasticsearchConfig::new(arguments.endpoint, arguments.index);
-            if let Ok(api_key) = std::env::var("ELASTICSEARCH_API_KEY") {
+            if let Ok(api_key) = std::env::var("COTH_HAY_SEEKER_ELASTICSEARCH_API_KEY") {
                 config = config.with_api_key(api_key);
-            } else if let Ok(token) = std::env::var("ELASTICSEARCH_BEARER_TOKEN") {
+            } else if let Ok(token) = std::env::var("COTH_HAY_SEEKER_ELASTICSEARCH_BEARER_TOKEN") {
                 config = config.with_bearer_token(token);
             }
             SearchServer::elasticsearch(Arc::new(ElasticsearchIndex::new(

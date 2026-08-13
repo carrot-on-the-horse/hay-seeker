@@ -22,7 +22,7 @@ pub const MODEL_CACHE_DIR_ENV: &str = "COTH_HAY_SEEKER_MODEL_CACHE_DIR";
 /// Overrides the host artifacts are downloaded from.
 pub const MODEL_BASE_URL_ENV: &str = "COTH_HAY_SEEKER_MODEL_BASE_URL";
 /// Points `local-static` at a bundle staged by hand.
-pub const LOCAL_STATIC_DIR_ENV: &str = "HAY_LOCAL_STATIC_MODEL_DIR";
+pub const LOCAL_STATIC_DIR_ENV: &str = "COTH_HAY_SEEKER_LOCAL_STATIC_MODEL_DIR";
 
 const CACHE_NAMESPACE: &str = "hay-seeker";
 const MODEL_SUBDIRECTORY: &str = "models";

@@ -101,7 +101,7 @@ fn workspace_root() -> PathBuf {
 }
 
 fn repository_root(workspace: &Path) -> PathBuf {
-    std::env::var_os("HAY_BENCH_REPOS")
+    std::env::var_os("COTH_HAY_SEEKER_BENCH_REPOS")
         .map(PathBuf::from)
         .unwrap_or_else(|| workspace.join(".bench-repos"))
 }

@@ -9,8 +9,8 @@ use cast_index::{DocumentId, Embedder, EmbeddingInput};
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let _ = dotenvy::dotenv();
-    let account_id = std::env::var("CLOUDFLARE_ACCOUNT_ID")?;
-    let token = std::env::var("CLOUDFLARE_AI_TOKEN")?;
+    let account_id = std::env::var("COTH_HAY_SEEKER_CLOUDFLARE_ACCOUNT_ID")?;
+    let token = std::env::var("COTH_HAY_SEEKER_CLOUDFLARE_AI_TOKEN")?;
     let provider = CloudflareWorkersAiEmbeddings::new(CloudflareWorkersAiEmbeddingsConfig::new(
         account_id, token,
     ))?;

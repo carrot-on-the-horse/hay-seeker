@@ -159,13 +159,14 @@ impl SearchRuntime {
     }
 
     fn local_onnx(backend: StorageBackend) -> Result<Self> {
-        let bundle_dir = std::env::var("HAY_LOCAL_MODEL_DIR")
-            .context("HAY_LOCAL_MODEL_DIR is required for local ONNX embeddings")?;
+        let bundle_dir = std::env::var("COTH_HAY_SEEKER_LOCAL_MODEL_DIR")
+            .context("COTH_HAY_SEEKER_LOCAL_MODEL_DIR is required for local ONNX embeddings")?;
         let stored_dimensions = match backend {
             StorageBackend::DuckDb => 256,
-            StorageBackend::Elasticsearch => {
-                environment_usize("HAY_LOCAL_RESEARCH_ELASTICSEARCH_DIMENSIONS", 768)?
-            }
+            StorageBackend::Elasticsearch => environment_usize(
+                "COTH_HAY_SEEKER_LOCAL_RESEARCH_ELASTICSEARCH_DIMENSIONS",
+                768,
+            )?,
         };
         let provider = LocalOnnxEmbedder::new(
             LocalOnnxConfig::new(bundle_dir).with_stored_dimensions(stored_dimensions),
@@ -206,12 +207,12 @@ impl SearchRuntime {
         let token = std::env::var("COTH_HAY_SEEKER_CF_AIG_TOKEN").context(
             "COTH_HAY_SEEKER_CF_AIG_TOKEN is required for Gemini (a Cloudflare AI Gateway Run token)",
         )?;
-        let revision = required_revision("GEMINI_MODEL_REVISION", "Gemini")?;
-        let endpoint = std::env::var("GEMINI_GATEWAY_URL")
-            .context("GEMINI_GATEWAY_URL is required for Gemini")?;
-        let dimensions = environment_usize("GEMINI_EMBEDDING_DIMENSIONS", 768)?;
-        let concurrency = environment_usize("GEMINI_EMBEDDING_CONCURRENCY", 8)?;
-        let max_attempts = environment_usize("GEMINI_EMBEDDING_MAX_ATTEMPTS", 4)?;
+        let revision = required_revision("COTH_HAY_SEEKER_GEMINI_MODEL_REVISION", "Gemini")?;
+        let endpoint = std::env::var("COTH_HAY_SEEKER_GEMINI_GATEWAY_URL")
+            .context("COTH_HAY_SEEKER_GEMINI_GATEWAY_URL is required for Gemini")?;
+        let dimensions = environment_usize("COTH_HAY_SEEKER_GEMINI_EMBEDDING_DIMENSIONS", 768)?;
+        let concurrency = environment_usize("COTH_HAY_SEEKER_GEMINI_EMBEDDING_CONCURRENCY", 8)?;
+        let max_attempts = environment_usize("COTH_HAY_SEEKER_GEMINI_EMBEDDING_MAX_ATTEMPTS", 4)?;
         let config = CloudflareVertexGemini2Config::new(endpoint.clone(), token)
             .with_dimensions(dimensions)
             .with_max_concurrency(concurrency);
@@ -226,20 +227,20 @@ impl SearchRuntime {
     }
 
     fn openai(backend: StorageBackend) -> Result<Self> {
-        let revision = required_revision("OPENAI_MODEL_REVISION", "OpenAI")?;
-        let model = std::env::var("OPENAI_EMBEDDING_MODEL")
+        let revision = required_revision("COTH_HAY_SEEKER_OPENAI_MODEL_REVISION", "OpenAI")?;
+        let model = std::env::var("COTH_HAY_SEEKER_OPENAI_EMBEDDING_MODEL")
             .unwrap_or_else(|_| cast_embeddings::OPENAI_DEFAULT_MODEL.into());
-        let dimensions = environment_usize("OPENAI_EMBEDDING_DIMENSIONS", 768)?;
-        let max_attempts = environment_usize("OPENAI_EMBEDDING_MAX_ATTEMPTS", 4)?;
+        let dimensions = environment_usize("COTH_HAY_SEEKER_OPENAI_EMBEDDING_DIMENSIONS", 768)?;
+        let max_attempts = environment_usize("COTH_HAY_SEEKER_OPENAI_EMBEDDING_MAX_ATTEMPTS", 4)?;
         let api_key = std::env::var("COTH_HAY_SEEKER_OPENAI_API_KEY")
             .ok()
             .filter(|value| !value.trim().is_empty());
-        let gateway_endpoint = std::env::var("OPENAI_GATEWAY_URL")
+        let gateway_endpoint = std::env::var("COTH_HAY_SEEKER_OPENAI_GATEWAY_URL")
             .ok()
             .filter(|value| !value.trim().is_empty());
         let (mut config, endpoint) = if let Some(endpoint) = gateway_endpoint {
             let gateway_token = std::env::var("COTH_HAY_SEEKER_CF_AIG_TOKEN").context(
-                "COTH_HAY_SEEKER_CF_AIG_TOKEN is required when OPENAI_GATEWAY_URL is set",
+                "COTH_HAY_SEEKER_CF_AIG_TOKEN is required when COTH_HAY_SEEKER_OPENAI_GATEWAY_URL is set",
             )?;
             (
                 OpenAiEmbeddingsConfig::through_cloudflare(endpoint.clone(), gateway_token),
@@ -270,12 +271,13 @@ impl SearchRuntime {
     }
 
     fn voyage(backend: StorageBackend) -> Result<Self> {
-        let api_key = std::env::var("VOYAGE_API_KEY").context("VOYAGE_API_KEY is required")?;
-        let revision = required_revision("VOYAGE_MODEL_REVISION", "Voyage")?;
-        let model =
-            std::env::var("VOYAGE_EMBEDDING_MODEL").unwrap_or_else(|_| VOYAGE_DEFAULT_MODEL.into());
-        let dimensions = environment_usize("VOYAGE_EMBEDDING_DIMENSIONS", 1_024)?;
-        let max_attempts = environment_usize("VOYAGE_EMBEDDING_MAX_ATTEMPTS", 4)?;
+        let api_key = std::env::var("COTH_HAY_SEEKER_VOYAGE_TOKEN")
+            .context("COTH_HAY_SEEKER_VOYAGE_TOKEN is required")?;
+        let revision = required_revision("COTH_HAY_SEEKER_VOYAGE_MODEL_REVISION", "Voyage")?;
+        let model = std::env::var("COTH_HAY_SEEKER_VOYAGE_EMBEDDING_MODEL")
+            .unwrap_or_else(|_| VOYAGE_DEFAULT_MODEL.into());
+        let dimensions = environment_usize("COTH_HAY_SEEKER_VOYAGE_EMBEDDING_DIMENSIONS", 1_024)?;
+        let max_attempts = environment_usize("COTH_HAY_SEEKER_VOYAGE_EMBEDDING_MAX_ATTEMPTS", 4)?;
         let provider = VoyageEmbeddings::new(
             VoyageEmbeddingsConfig::new(api_key)
                 .with_model(model)
@@ -289,15 +291,15 @@ impl SearchRuntime {
     }
 
     fn cloudflare_workers_ai(backend: StorageBackend) -> Result<Self> {
-        let account_id = std::env::var("CLOUDFLARE_ACCOUNT_ID")
-            .context("CLOUDFLARE_ACCOUNT_ID is required for Workers AI")?;
-        let token = std::env::var("CLOUDFLARE_AI_TOKEN")
-            .context("CLOUDFLARE_AI_TOKEN is required for Workers AI")?;
+        let account_id = std::env::var("COTH_HAY_SEEKER_CLOUDFLARE_ACCOUNT_ID")
+            .context("COTH_HAY_SEEKER_CLOUDFLARE_ACCOUNT_ID is required for Workers AI")?;
+        let token = std::env::var("COTH_HAY_SEEKER_CLOUDFLARE_AI_TOKEN")
+            .context("COTH_HAY_SEEKER_CLOUDFLARE_AI_TOKEN is required for Workers AI")?;
         let revision = required_revision(
-            "CLOUDFLARE_WORKERS_AI_MODEL_REVISION",
+            "COTH_HAY_SEEKER_CLOUDFLARE_WORKERS_AI_MODEL_REVISION",
             "Cloudflare Workers AI",
         )?;
-        let max_attempts = environment_usize("CLOUDFLARE_AI_MAX_ATTEMPTS", 4)?;
+        let max_attempts = environment_usize("COTH_HAY_SEEKER_CLOUDFLARE_AI_MAX_ATTEMPTS", 4)?;
         let provider = CloudflareWorkersAiEmbeddings::new(
             CloudflareWorkersAiEmbeddingsConfig::new(account_id, token),
         )?;
