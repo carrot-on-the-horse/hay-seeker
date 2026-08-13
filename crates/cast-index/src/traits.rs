@@ -4,9 +4,9 @@ use std::pin::Pin;
 use cast_core::ChunkOutput;
 
 use crate::{
-    DocumentId, DocumentIdentityInput, EmbeddingIdentity, EmbeddingVector, FileDescriptor,
-    FileInventoryRequest, FileLookup, IndexError, IndexEvent, RepositorySnapshot, SourceFile,
-    StoreCapabilities, SyncCheckpoint, WriteBatch, WriteReceipt,
+    ContractError, DocumentId, DocumentIdentityInput, EmbeddingIdentity, EmbeddingVector,
+    FileDescriptor, FileInventoryRequest, FileLookup, IndexError, IndexEvent, RepositorySnapshot,
+    SourceFile, StoreCapabilities, SyncCheckpoint, WriteBatch, WriteReceipt,
 };
 
 /// Runtime-neutral boxed future used by object-safe adapter traits.
@@ -136,6 +136,87 @@ pub trait IndexObserver: Send + Sync {
 }
 
 /// Cooperative cancellation signal shared with an indexing run.
+/// Identity of a reranking model, recorded with any ranking it produced.
+///
+/// A reranker changes order, never stored vectors, so it is deliberately not
+/// part of the index manifest: turning one on or off is not a reindex. It is
+/// still pinned and reported, because two runs whose ordering came from
+/// different rerankers are not comparable evidence.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RerankIdentity {
+    /// Provider that executed the scoring, such as `cloudflare-workers-ai`.
+    pub provider: String,
+    /// Exact model identifier.
+    pub model: String,
+    /// Deployment revision the operator approved.
+    pub revision: String,
+}
+
+impl RerankIdentity {
+    /// Rejects a blank provider, model, or revision.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ContractError::Empty`] naming the first blank field, so an
+    /// unattributable ranking cannot be reported as pinned.
+    pub fn validate(&self) -> Result<(), ContractError> {
+        for (field, value) in [
+            ("rerank provider", &self.provider),
+            ("rerank model", &self.model),
+            ("rerank revision", &self.revision),
+        ] {
+            if value.trim().is_empty() {
+                return Err(ContractError::Empty { field });
+            }
+        }
+        Ok(())
+    }
+}
+
+/// One query paired with the retrieved passages to be scored against it.
+#[derive(Clone, Copy, Debug)]
+pub struct RerankRequest<'a> {
+    /// The searcher's query text, unmodified.
+    pub query: &'a str,
+    /// Retrieved passage texts, in the order the retriever returned them.
+    pub passages: &'a [&'a str],
+}
+
+/// Relevance scores for one [`RerankRequest`].
+///
+/// Scores are provider-scaled and comparable only within a single response, so
+/// a caller sorts by them and never thresholds against a fixed value.
+#[derive(Clone, Debug)]
+pub struct RerankScores {
+    /// Model that produced these scores.
+    pub identity: RerankIdentity,
+    /// One score per input passage, in the order the passages were given.
+    pub scores: Vec<f32>,
+}
+
+/// Reorders retrieved passages by scoring each against the query directly.
+///
+/// This is the cascade's last stage. A retriever ranks a passage without ever
+/// seeing it beside the query; a cross-encoder scores the pair, which is more
+/// accurate and far too slow to run over a corpus, so it only ever sees the
+/// candidates a retriever already selected.
+pub trait Reranker: Send + Sync {
+    /// Returns the pinned identity of the scoring model.
+    fn identity(&self) -> &RerankIdentity;
+
+    /// Scores every passage against the query.
+    ///
+    /// Output order must match input order exactly, and the returned length must
+    /// equal `request.passages.len()`; a caller relies on position to map a
+    /// score back to the candidate it belongs to. Implementations must not
+    /// reorder or truncate on the caller's behalf.
+    fn rerank<'a>(
+        &'a self,
+        request: RerankRequest<'a>,
+    ) -> BoxFuture<'a, Result<RerankScores, IndexError>>;
+}
+
+/// Cooperative cancellation signal shared with an indexing run.
 pub trait Cancellation: Send + Sync {
     /// Returns whether the caller has requested cancellation.
     fn is_cancelled(&self) -> bool;
@@ -147,17 +228,22 @@ mod tests {
 
     #[test]
     fn adapter_traits_are_object_safe() {
+        #[expect(
+            clippy::too_many_arguments,
+            reason = "one parameter per adapter trait; the point is object safety"
+        )]
         fn accept(
             _source: Option<&dyn RepositorySource>,
             _factory: Option<&dyn ChunkEngineFactory>,
             _ids: Option<&dyn DocumentIdFactory>,
             _embedder: Option<&dyn Embedder>,
+            _reranker: Option<&dyn Reranker>,
             _store: Option<&dyn IndexStore>,
             _observer: Option<&dyn IndexObserver>,
             _cancellation: Option<&dyn Cancellation>,
         ) {
         }
 
-        accept(None, None, None, None, None, None, None);
+        accept(None, None, None, None, None, None, None, None);
     }
 }

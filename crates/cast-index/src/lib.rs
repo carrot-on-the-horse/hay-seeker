@@ -42,7 +42,8 @@ pub use source::{
 };
 pub use traits::{
     BoxFuture, Cancellation, ChunkEngine, ChunkEngineFactory, DocumentIdFactory, Embedder,
-    EmbeddingInput, FileCursor, IndexObserver, IndexStore, RepositorySource,
+    EmbeddingInput, FileCursor, IndexObserver, IndexStore, RepositorySource, RerankIdentity,
+    RerankRequest, RerankScores, Reranker,
 };
 
 /// Schema version for [`IndexDocument`].

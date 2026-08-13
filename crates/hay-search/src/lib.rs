@@ -24,6 +24,7 @@ mod error;
 mod manifest;
 #[cfg(feature = "phase0")]
 mod phase0;
+mod rerank;
 mod retriever;
 
 pub use analysis::analyze_code_terms;
@@ -33,6 +34,7 @@ pub use error::{ManifestMismatch, SearchError};
 pub use manifest::{FdeParams, IndexManifest, Quantization};
 #[cfg(feature = "phase0")]
 pub use phase0::DeterministicPhase0Retriever;
+pub use rerank::rerank_candidates;
 pub use retriever::{
     Candidate, Capabilities, ManifestCheckedRetriever, Query, Retriever, SearchDocument,
     SearchOpts, Signals, fuse_ranked_results,
