@@ -33,12 +33,14 @@ use hay_search::{IndexManifest, Quantization};
 use ring::digest::{SHA256, digest};
 
 mod models;
+mod workspace;
 
 pub use cast_embeddings::{ModelFetchEvent, ModelFetchReporter};
 pub use models::{
     DOWNLOAD_MODELS_ENV, LOCAL_STATIC_DIR_ENV, MODEL_BASE_URL_ENV, MODEL_CACHE_DIR_ENV,
     ResolvedModels, ensure_models, model_cache_dir, report_to_stderr,
 };
+pub use workspace::{INDEX_DIRECTORY, INDEX_FILE, Workspace, git_root, prepare_index_directory};
 
 /// Load the nearest `.env` file without overriding variables already exported
 /// by the parent process.

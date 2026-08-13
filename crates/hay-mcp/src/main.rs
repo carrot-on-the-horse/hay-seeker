@@ -16,7 +16,8 @@ use clap::{ArgAction, CommandFactory as _, FromArgMatches as _, Parser, ValueEnu
 use hay_duckdb::DuckDbIndex;
 use hay_elasticsearch::{ElasticsearchConfig, ElasticsearchIndex};
 use hay_runtime::{
-    EmbeddingProvider, SearchRuntime, StorageBackend, ensure_models, load_dotenv, report_to_stderr,
+    EmbeddingProvider, SearchRuntime, StorageBackend, Workspace, ensure_models, load_dotenv,
+    report_to_stderr,
 };
 use hay_search::{
     Candidate, Capabilities, DeterministicPhase0Retriever, IndexManifest, Query, Retriever,
@@ -84,13 +85,11 @@ struct Arguments {
     )]
     corpus: PathBuf,
     /// Existing `DuckDB` index created by `hay index`.
-    #[arg(
-        long,
-        env = "COTH_HAY_SEEKER_DATABASE",
-        hide_env_values = true,
-        default_value = ".hay-seeker/index.duckdb"
-    )]
-    database: PathBuf,
+    ///
+    /// Defaults to the index of the Git repository containing the current
+    /// directory, which is the one `hay index` writes.
+    #[arg(long, env = "COTH_HAY_SEEKER_DATABASE", hide_env_values = true)]
+    database: Option<PathBuf>,
     /// Elasticsearch base URL.
     #[arg(
         long,
@@ -596,6 +595,26 @@ async fn search_runtime(
 /// The Phase 0 corpus backend cannot embed. Defaulting the provider must not
 /// break `--backend phase0`, so an unset provider is silently lexical there
 /// while an explicitly requested one is still rejected.
+/// Resolves the index to serve and refuses to serve one that does not exist.
+///
+/// A server has no operator to ask and cannot write a question to standard
+/// output, which carries the MCP protocol. Starting anyway would open an empty
+/// `DuckDB` file and answer every tool call with zero results, so a missing
+/// index fails at startup where the client will show the reason.
+fn resolve_database(configured: Option<PathBuf>) -> Result<PathBuf> {
+    let database = match configured {
+        Some(database) => database,
+        None => Workspace::from_current_dir()?.default_database(),
+    };
+    if !database.is_file() {
+        bail!(
+            "no index at {}; build one with `hay index` before starting hay-mcp",
+            database.display()
+        );
+    }
+    Ok(database)
+}
+
 fn parse_arguments() -> Result<(Arguments, bool)> {
     let matches = Arguments::command().get_matches();
     let chosen = matches!(
@@ -618,13 +637,14 @@ async fn main() -> Result<()> {
             SearchServer::phase0(load_corpus(&arguments.corpus)?)?
         }
         Backend::Duckdb => {
+            let database = resolve_database(arguments.database)?;
             let SearchRuntime { manifest, embedder } = search_runtime(
                 arguments.backend,
                 arguments.embeddings,
                 arguments.download_models,
             )
             .await?;
-            SearchServer::duckdb(arguments.database, manifest, embedder)?
+            SearchServer::duckdb(database, manifest, embedder)?
         }
         Backend::Elasticsearch => {
             let SearchRuntime { manifest, embedder } = search_runtime(

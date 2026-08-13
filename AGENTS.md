@@ -89,6 +89,11 @@ Snapshot regeneration is refused in CI.
   stated in the pull request.
 - Shared dependencies and metadata live in `[workspace.dependencies]` and
   `[workspace.package]`; member crates inherit with `<dep>.workspace = true`.
+- Nothing prompts an automated caller. A question requires both standard input
+  and standard error to be terminals, and any CI variable withdraws it
+  (`crates/hay-cli/src/interaction.rs`). Standard output carries result JSON and
+  the MCP protocol, so questions and progress go to standard error only. Any new
+  implicit action fails closed and names the command that would do it.
 - Changes to chunk identities, tokenizer or grammar versions, file eligibility,
   incremental checkpoints, index manifests, or backend scoring are
   compatibility changes: make migrations fail closed with a clear reindex
