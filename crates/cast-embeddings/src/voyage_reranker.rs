@@ -13,52 +13,56 @@ use serde_json::json;
 
 use crate::http::{RemoteEmbeddingConfigError, validate_endpoint};
 
-/// `BAAI` cross-encoder reranker hosted on `Workers AI`.
-pub const CLOUDFLARE_RERANKER_MODEL: &str = "@cf/baai/bge-reranker-base";
+/// `Voyage`'s reranking route.
+pub const VOYAGE_RERANK_ENDPOINT: &str = "https://api.voyageai.com/v1/rerank";
+/// Reranking model selected by default.
+pub const VOYAGE_DEFAULT_RERANK_MODEL: &str = "rerank-2.5";
 
 const MAX_RESPONSE_BYTES: u64 = 16 * 1024 * 1024;
 /// Passages scored in one request.
 ///
-/// A reranker request carries the query plus every passage, so it grows far
-/// faster than an embedding request. Sixteen six-kilobyte source chunks did not
-/// merely get rejected: the connection failed during the TLS handshake's record
-/// exchange with `AlertReceived(BadRecordMac)`, and Workers AI answered 500 to
-/// comparably sized embedding batches from the same host. Four passages and 20k
-/// characters complete reliably, so the bound stays there until someone measures
-/// where the real ceiling is.
-const MAX_PASSAGES_PER_REQUEST: usize = 4;
-const MAX_CHARS_PER_REQUEST: usize = 20_000;
+/// Voyage accepts a thousand documents and six hundred thousand tokens per
+/// request, so a candidate list of fifty fits in one call — unlike the hosted
+/// Cloudflare reranker, which needed thirteen. The character bound is
+/// pessimistic at one character per token: source code measured 1.41 characters
+/// per token on this corpus, so 400k characters cannot approach the token
+/// ceiling whatever the input looks like.
+const MAX_PASSAGES_PER_REQUEST: usize = 128;
+const MAX_CHARS_PER_REQUEST: usize = 400_000;
 
-/// Configuration for the hosted `Workers AI` reranker.
-pub struct CloudflareRerankerConfig {
-    account_id: String,
-    api_token: String,
+/// Configuration for the hosted `Voyage` reranker.
+pub struct VoyageRerankerConfig {
+    api_key: String,
+    model: String,
     revision: String,
-    endpoint: Option<String>,
+    endpoint: String,
     timeout: Duration,
 }
 
-impl CloudflareRerankerConfig {
-    /// Uses `bge-reranker-base` and a 30-second request timeout.
+impl VoyageRerankerConfig {
+    /// Uses [`VOYAGE_DEFAULT_RERANK_MODEL`] and a 30-second request timeout.
     #[must_use]
-    pub fn new(
-        account_id: impl Into<String>,
-        api_token: impl Into<String>,
-        revision: impl Into<String>,
-    ) -> Self {
+    pub fn new(api_key: impl Into<String>, revision: impl Into<String>) -> Self {
         Self {
-            account_id: account_id.into(),
-            api_token: api_token.into(),
+            api_key: api_key.into(),
+            model: VOYAGE_DEFAULT_RERANK_MODEL.into(),
             revision: revision.into(),
-            endpoint: None,
+            endpoint: VOYAGE_RERANK_ENDPOINT.into(),
             timeout: Duration::from_secs(30),
         }
+    }
+
+    /// Selects a different reranking model.
+    #[must_use]
+    pub fn with_model(mut self, model: impl Into<String>) -> Self {
+        self.model = model.into();
+        self
     }
 
     /// Overrides the endpoint for contract tests.
     #[must_use]
     pub fn with_endpoint(mut self, endpoint: impl Into<String>) -> Self {
-        self.endpoint = Some(endpoint.into());
+        self.endpoint = endpoint.into();
         self
     }
 
@@ -70,12 +74,12 @@ impl CloudflareRerankerConfig {
     }
 }
 
-impl fmt::Debug for CloudflareRerankerConfig {
+impl fmt::Debug for VoyageRerankerConfig {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
-            .debug_struct("CloudflareRerankerConfig")
-            .field("account_id", &self.account_id)
-            .field("api_token", &"[REDACTED]")
+            .debug_struct("VoyageRerankerConfig")
+            .field("api_key", &"[REDACTED]")
+            .field("model", &self.model)
             .field("revision", &self.revision)
             .field("endpoint", &self.endpoint)
             .field("timeout", &self.timeout)
@@ -83,55 +87,45 @@ impl fmt::Debug for CloudflareRerankerConfig {
     }
 }
 
-/// Scores query/passage pairs through `Workers AI`'s reranker route.
+/// Scores query/passage pairs through `Voyage`'s reranking route.
 #[derive(Debug)]
-pub struct CloudflareReranker {
+pub struct VoyageReranker {
     client: Client,
     endpoint: String,
     authorization: HeaderValue,
+    model: String,
     identity: RerankIdentity,
 }
 
-impl CloudflareReranker {
+impl VoyageReranker {
     /// Builds a reusable, thread-safe reranker.
     ///
     /// # Errors
     ///
-    /// Returns [`RemoteEmbeddingConfigError`] for an invalid account, token,
+    /// Returns [`RemoteEmbeddingConfigError`] for an invalid key, model,
     /// revision, endpoint, timeout, or HTTP client configuration.
-    pub fn new(config: CloudflareRerankerConfig) -> Result<Self, RemoteEmbeddingConfigError> {
-        if config.account_id.trim().is_empty()
-            || !config
-                .account_id
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-        {
-            return Err(RemoteEmbeddingConfigError::InvalidAccountId);
-        }
+    pub fn new(config: VoyageRerankerConfig) -> Result<Self, RemoteEmbeddingConfigError> {
         if config.timeout.is_zero() {
             return Err(RemoteEmbeddingConfigError::InvalidTimeout);
         }
+        let model = config.model.trim().to_owned();
+        if model.is_empty() {
+            return Err(RemoteEmbeddingConfigError::InvalidModel);
+        }
         let identity = RerankIdentity {
-            provider: "cloudflare-workers-ai".into(),
-            model: CLOUDFLARE_RERANKER_MODEL.into(),
+            provider: "voyage".into(),
+            model: model.clone(),
             revision: config.revision.trim().into(),
         };
         identity
             .validate()
             .map_err(|_| RemoteEmbeddingConfigError::InvalidModel)?;
-        let path = format!(
-            "/client/v4/accounts/{}/ai/run/{CLOUDFLARE_RERANKER_MODEL}",
-            config.account_id
-        );
-        let endpoint = config
-            .endpoint
-            .unwrap_or_else(|| format!("https://api.cloudflare.com{path}"));
-        validate_endpoint(&endpoint, "api.cloudflare.com", &path)?;
-        let token = config.api_token.trim();
-        if token.is_empty() {
+        validate_endpoint(&config.endpoint, "api.voyageai.com", "/v1/rerank")?;
+        let key = config.api_key.trim();
+        if key.is_empty() {
             return Err(RemoteEmbeddingConfigError::InvalidBearer);
         }
-        let mut authorization = HeaderValue::from_str(&format!("Bearer {token}"))
+        let mut authorization = HeaderValue::from_str(&format!("Bearer {key}"))
             .map_err(|_| RemoteEmbeddingConfigError::InvalidBearer)?;
         authorization.set_sensitive(true);
         let client = Client::builder()
@@ -140,8 +134,9 @@ impl CloudflareReranker {
             .map_err(|_| RemoteEmbeddingConfigError::HttpClient)?;
         Ok(Self {
             client,
-            endpoint,
+            endpoint: config.endpoint,
             authorization,
+            model,
             identity,
         })
     }
@@ -167,10 +162,17 @@ impl CloudflareReranker {
         windows
     }
 
-    fn body(query: &str, passages: &[&str]) -> serde_json::Value {
+    fn body(&self, query: &str, passages: &[&str]) -> serde_json::Value {
         json!({
             "query": query,
-            "contexts": passages.iter().map(|text| json!({ "text": text })).collect::<Vec<_>>(),
+            "documents": passages,
+            "model": self.model,
+            // Truncation is left enabled, the opposite of the embedding path.
+            // There, silently shortening a document would change what the index
+            // stores and make a vector unreproducible; here it only affects one
+            // transient score, and refusing the request would lose the ranking
+            // for an entire query because one chunk was long.
+            "truncation": true,
         })
     }
 
@@ -179,7 +181,7 @@ impl CloudflareReranker {
             .client
             .post(&self.endpoint)
             .header("authorization", self.authorization.clone())
-            .json(&Self::body(query, passages))
+            .json(&self.body(query, passages))
             .send()
             .await
             .map_err(|error| Self::transport_error(&error))?;
@@ -187,64 +189,47 @@ impl CloudflareReranker {
         if !status.is_success() {
             return Err(Self::status_error(status));
         }
-        if response
-            .content_length()
-            .is_some_and(|length| length > MAX_RESPONSE_BYTES)
-        {
-            return Err(Self::error(
-                IndexErrorKind::Embedding,
-                "response_too_large",
-                "response",
-            ));
-        }
         let bytes = response
             .bytes()
             .await
             .map_err(|error| Self::transport_error(&error))?;
-        let envelope: RerankEnvelope = serde_json::from_slice(&bytes).map_err(|_| {
+        if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_RESPONSE_BYTES {
+            return Err(Self::error(
+                IndexErrorKind::Embedding,
+                "response_too_large",
+                "Voyage reranker response exceeded the accepted size",
+            ));
+        }
+        let parsed: RerankResponse = serde_json::from_slice(&bytes).map_err(|_| {
             Self::error(
                 IndexErrorKind::Embedding,
                 "invalid_json",
-                "Cloudflare reranker returned invalid JSON",
+                "Voyage reranker returned invalid JSON",
             )
         })?;
-        if !envelope.success {
-            return Err(Self::error(
-                IndexErrorKind::Embedding,
-                "upstream_failure",
-                "Cloudflare reranker reported failure",
-            ));
-        }
-        let result = envelope.result.ok_or_else(|| {
-            Self::error(
-                IndexErrorKind::Embedding,
-                "missing_result",
-                "Cloudflare reranker omitted its result",
-            )
-        })?;
-        // The route returns results ordered by score and identifies each by its
-        // index in the request, so order is restored by position rather than
+        // Results come back ordered by score and identify each passage by its
+        // request index, so caller order is restored by position rather than
         // trusted from the response.
         let mut scores = vec![f32::NAN; passages.len()];
-        for entry in result.response {
-            let slot = scores.get_mut(entry.id).ok_or_else(|| {
+        for entry in parsed.data {
+            let slot = scores.get_mut(entry.index).ok_or_else(|| {
                 Self::error(
                     IndexErrorKind::Embedding,
                     "index_out_of_range",
                     format!(
-                        "Cloudflare reranker scored context {} of {}",
-                        entry.id,
+                        "Voyage reranker scored document {} of {}",
+                        entry.index,
                         passages.len()
                     ),
                 )
             })?;
-            *slot = entry.score;
+            *slot = entry.relevance_score;
         }
         if let Some(position) = scores.iter().position(|score| score.is_nan()) {
             return Err(Self::error(
                 IndexErrorKind::Embedding,
                 "missing_score",
-                format!("Cloudflare reranker left context {position} unscored"),
+                format!("Voyage reranker left document {position} unscored"),
             ));
         }
         Ok(scores)
@@ -256,7 +241,7 @@ impl CloudflareReranker {
         } else {
             IndexErrorKind::Embedding
         };
-        Self::error(kind, "transport", "Cloudflare reranker request failed")
+        Self::error(kind, "transport", "Voyage reranker request failed")
             .with_retry(RetryAdvice::Immediate)
     }
 
@@ -270,7 +255,7 @@ impl CloudflareReranker {
         let error = Self::error(
             IndexErrorKind::Embedding,
             code,
-            format!("Cloudflare reranker returned HTTP {status}"),
+            format!("Voyage reranker returned HTTP {status}"),
         );
         match code {
             "throttled" => error.with_retry(RetryAdvice::AfterMillis(non_zero_millis(2_000))),
@@ -280,11 +265,11 @@ impl CloudflareReranker {
     }
 
     fn error(kind: IndexErrorKind, code: &str, message: impl Into<String>) -> IndexError {
-        IndexError::new(kind, format!("cloudflare_reranker_{code}"), message)
+        IndexError::new(kind, format!("voyage_reranker_{code}"), message)
     }
 }
 
-impl Reranker for CloudflareReranker {
+impl Reranker for VoyageReranker {
     fn identity(&self) -> &RerankIdentity {
         &self.identity
     }
@@ -317,20 +302,14 @@ impl Reranker for CloudflareReranker {
 }
 
 #[derive(Debug, Deserialize)]
-struct RerankEnvelope {
-    success: bool,
-    result: Option<RerankResult>,
-}
-
-#[derive(Debug, Deserialize)]
-struct RerankResult {
-    response: Vec<RerankEntry>,
+struct RerankResponse {
+    data: Vec<RerankEntry>,
 }
 
 #[derive(Debug, Deserialize)]
 struct RerankEntry {
-    id: usize,
-    score: f32,
+    index: usize,
+    relevance_score: f32,
 }
 
 /// Non-zero milliseconds for retry advice, with a safe floor.
@@ -342,77 +321,77 @@ fn non_zero_millis(milliseconds: u64) -> NonZeroU64 {
 mod tests {
     use super::*;
 
-    fn adapter() -> CloudflareReranker {
-        CloudflareReranker::new(CloudflareRerankerConfig::new(
-            "account",
-            "token",
-            "benchmark-revision",
-        ))
-        .unwrap()
+    fn adapter() -> VoyageReranker {
+        VoyageReranker::new(VoyageRerankerConfig::new("key", "benchmark-revision")).unwrap()
     }
 
     #[test]
-    fn the_request_names_the_query_and_indexes_every_context() {
-        let body =
-            CloudflareReranker::body("where is retry configured", &["fn a() {}", "fn b() {}"]);
+    fn the_request_names_the_model_and_every_document() {
+        let body = adapter().body("where is retry configured", &["fn a() {}", "fn b() {}"]);
         assert_eq!(body["query"], "where is retry configured");
-        assert_eq!(body["contexts"][0]["text"], "fn a() {}");
-        assert_eq!(body["contexts"][1]["text"], "fn b() {}");
+        assert_eq!(body["documents"][0], "fn a() {}");
+        assert_eq!(body["documents"][1], "fn b() {}");
+        assert_eq!(body["model"], VOYAGE_DEFAULT_RERANK_MODEL);
     }
 
-    /// A reranker request carries every passage at once, so an unbounded batch
-    /// would fail the same way the embedding adapters did on real source.
+    /// A long chunk must cost one truncated score, not the whole query's ranking.
     #[test]
-    fn passages_are_split_into_bounded_requests() {
-        let many = vec!["x"; 40];
-        let windows = CloudflareReranker::windows(&many);
-        assert_eq!(windows.len(), 10);
-        assert_eq!(windows[0], (0, 4));
-        assert_eq!(windows[9], (36, 40));
+    fn truncation_stays_enabled_for_scoring() {
+        assert_eq!(adapter().body("q", &["text"])["truncation"], true);
+    }
 
-        let long = "y".repeat(12_000);
+    /// Fifty candidates are the working case and must not be split at all.
+    #[test]
+    fn a_realistic_candidate_list_is_one_request() {
+        let passages = vec!["a".repeat(1_500); 50];
+        let borrowed = passages.iter().map(String::as_str).collect::<Vec<_>>();
+        assert_eq!(VoyageReranker::windows(&borrowed), vec![(0, 50)]);
+    }
+
+    #[test]
+    fn oversized_batches_are_split_on_both_bounds() {
+        let many = vec!["x"; 300];
+        assert_eq!(VoyageReranker::windows(&many).len(), 3);
+
+        let long = "y".repeat(250_000);
         let heavy = vec![long.as_str(), long.as_str(), long.as_str()];
-        let windows = CloudflareReranker::windows(&heavy);
-        assert_eq!(
-            windows.len(),
-            3,
-            "each passage exceeds half the char budget"
-        );
+        assert_eq!(VoyageReranker::windows(&heavy).len(), 3);
     }
 
     #[test]
     fn one_oversized_passage_still_travels_alone() {
         let huge = "z".repeat(MAX_CHARS_PER_REQUEST * 2);
-        let windows = CloudflareReranker::windows(&[huge.as_str()]);
-        assert_eq!(windows, vec![(0, 1)]);
+        assert_eq!(VoyageReranker::windows(&[huge.as_str()]), vec![(0, 1)]);
     }
 
     #[test]
-    fn account_id_cannot_become_endpoint_path_input() {
+    fn a_blank_revision_is_refused() {
+        assert!(VoyageReranker::new(VoyageRerankerConfig::new("key", "  ")).is_err());
+    }
+
+    #[test]
+    fn a_blank_key_is_refused() {
+        assert!(VoyageReranker::new(VoyageRerankerConfig::new("   ", "revision")).is_err());
+    }
+
+    #[test]
+    fn an_endpoint_on_another_host_is_refused() {
         assert!(
-            CloudflareReranker::new(CloudflareRerankerConfig::new(
-                "../other-account",
-                "token",
-                "revision"
-            ))
+            VoyageReranker::new(
+                VoyageRerankerConfig::new("key", "revision")
+                    .with_endpoint("https://example.com/v1/rerank")
+            )
             .is_err()
         );
     }
 
-    /// An unattributable ranking must not be reportable as pinned evidence.
     #[test]
-    fn a_blank_revision_is_refused() {
-        assert!(
-            CloudflareReranker::new(CloudflareRerankerConfig::new("account", "token", "   "))
-                .is_err()
-        );
-    }
-
-    #[test]
-    fn identity_names_the_hosted_cross_encoder() {
-        let adapter = adapter();
-        assert_eq!(adapter.identity().model, "@cf/baai/bge-reranker-base");
-        assert_eq!(adapter.identity().provider, "cloudflare-workers-ai");
-        assert_eq!(adapter.identity().revision, "benchmark-revision");
+    fn identity_names_the_selected_model() {
+        let adapter = VoyageReranker::new(
+            VoyageRerankerConfig::new("key", "revision").with_model("rerank-2.5-lite"),
+        )
+        .unwrap();
+        assert_eq!(adapter.identity().provider, "voyage");
+        assert_eq!(adapter.identity().model, "rerank-2.5-lite");
     }
 }

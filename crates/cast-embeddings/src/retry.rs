@@ -4,7 +4,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use cast_index::{
     BoxFuture, Embedder, EmbeddingIdentity, EmbeddingInput, EmbeddingVector, IndexError,
-    RetryAdvice,
+    RerankIdentity, RerankRequest, RerankScores, Reranker, RetryAdvice,
 };
 use thiserror::Error;
 
@@ -129,6 +129,43 @@ impl<E: Embedder> Embedder for RetryingEmbedder<E> {
         text: &'a str,
     ) -> BoxFuture<'a, Result<EmbeddingVector, IndexError>> {
         Box::pin(async move { retry_operation(|| self.inner.embed_query(text), self.policy).await })
+    }
+}
+
+/// Applies a retry policy to a reranker.
+///
+/// A reranker is one request per query, so a single 429 loses that query's whole
+/// ranking. The embedding path already owned attempts through
+/// [`RetryingEmbedder`]; this is the same policy for the same reason.
+pub struct RetryingReranker<R> {
+    inner: R,
+    policy: RetryPolicy,
+}
+
+impl<R> RetryingReranker<R> {
+    /// Wraps a reranker with the supplied validated retry policy.
+    #[must_use]
+    pub const fn new(inner: R, policy: RetryPolicy) -> Self {
+        Self { inner, policy }
+    }
+
+    /// Returns the wrapped provider adapter.
+    #[must_use]
+    pub fn into_inner(self) -> R {
+        self.inner
+    }
+}
+
+impl<R: Reranker> Reranker for RetryingReranker<R> {
+    fn identity(&self) -> &RerankIdentity {
+        self.inner.identity()
+    }
+
+    fn rerank<'a>(
+        &'a self,
+        request: RerankRequest<'a>,
+    ) -> BoxFuture<'a, Result<RerankScores, IndexError>> {
+        Box::pin(async move { retry_operation(|| self.inner.rerank(request), self.policy).await })
     }
 }
 

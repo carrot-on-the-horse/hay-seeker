@@ -31,6 +31,7 @@ mod model_fetch;
 mod openai;
 mod retry;
 mod voyage;
+mod voyage_reranker;
 
 pub use cloudflare_reranker::{
     CLOUDFLARE_RERANKER_MODEL, CloudflareReranker, CloudflareRerankerConfig,
@@ -58,7 +59,10 @@ pub use model_fetch::{
 pub use openai::{
     OPENAI_DEFAULT_MODEL, OPENAI_EMBEDDINGS_ENDPOINT, OpenAiEmbeddings, OpenAiEmbeddingsConfig,
 };
-pub use retry::{RetryPolicy, RetryPolicyError, RetryingEmbedder};
+pub use retry::{RetryPolicy, RetryPolicyError, RetryingEmbedder, RetryingReranker};
 pub use voyage::{
     VOYAGE_DEFAULT_MODEL, VOYAGE_EMBEDDINGS_ENDPOINT, VoyageEmbeddings, VoyageEmbeddingsConfig,
+};
+pub use voyage_reranker::{
+    VOYAGE_DEFAULT_RERANK_MODEL, VOYAGE_RERANK_ENDPOINT, VoyageReranker, VoyageRerankerConfig,
 };
