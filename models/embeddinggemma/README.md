@@ -12,7 +12,7 @@ online, then query and index with networking disabled.
    ONNX graph uses external data files, add every file to `artifacts`.
 4. Copy `bundle.example.json` to `bundle.json`, pin the upstream and export
    revisions, and replace each checksum with `shasum -a 256 <file>` output.
-5. Set `HAY_LOCAL_MODEL_DIR` to this directory.
+5. Set `COTH_HAY_SEEKER_LOCAL_MODEL_DIR` to this directory.
 
 The loader rejects unknown manifest keys, missing checksums, uppercase or
 malformed digests, path traversal, symlink escapes, incompatible tensor names,
@@ -28,7 +28,7 @@ representation-specific difference.
 Verify the complete local contract using only built-in synthetic strings:
 
 ```bash
-HAY_LOCAL_MODEL_DIR=/absolute/path/to/bundle \
+COTH_HAY_SEEKER_LOCAL_MODEL_DIR=/absolute/path/to/bundle \
   cargo run -p cast-embeddings --example local_onnx_smoke
 ```
 
@@ -40,6 +40,6 @@ network request is involved.
 Measure warm encode throughput with Criterion:
 
 ```bash
-HAY_LOCAL_MODEL_DIR=/absolute/path/to/bundle \
+COTH_HAY_SEEKER_LOCAL_MODEL_DIR=/absolute/path/to/bundle \
   cargo bench -p cast-embeddings --bench local_encode -- --noplot
 ```

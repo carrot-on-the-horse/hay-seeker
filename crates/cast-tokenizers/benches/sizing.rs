@@ -48,7 +48,7 @@ fn benchmark_sizers(criterion: &mut Criterion) {
 }
 
 fn repository_root() -> PathBuf {
-    if let Some(root) = std::env::var_os("HAY_BENCH_REPOS") {
+    if let Some(root) = std::env::var_os("COTH_HAY_SEEKER_BENCH_REPOS") {
         return PathBuf::from(root);
     }
     Path::new(env!("CARGO_MANIFEST_DIR"))

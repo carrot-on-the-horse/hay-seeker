@@ -35,11 +35,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         text: source,
     };
 
-    let max_chunk_size = env::var("GEMINI_SMOKE_CHUNK_TOKENS")
+    let max_chunk_size = env::var("COTH_HAY_SEEKER_GEMINI_SMOKE_CHUNK_TOKENS")
         .ok()
         .map_or(Ok(1_500), |value| value.parse())?;
     let mut chunker = ChunkerV1::new(
-        NonZeroUsize::new(max_chunk_size).ok_or("GEMINI_SMOKE_CHUNK_TOKENS must be non-zero")?,
+        NonZeroUsize::new(max_chunk_size)
+            .ok_or("COTH_HAY_SEEKER_GEMINI_SMOKE_CHUNK_TOKENS must be non-zero")?,
         FixedWindowConfig::default(),
     )?;
     let chunks = chunker.chunk(&document)?;
@@ -103,12 +104,12 @@ fn embedder_from_env() -> Result<CloudflareVertexGemini2, Box<dyn std::error::Er
     if token.trim().is_empty() {
         return Err("COTH_HAY_SEEKER_CF_AIG_TOKEN is empty".into());
     }
-    let endpoint = env::var("GEMINI_GATEWAY_URL")?;
+    let endpoint = env::var("COTH_HAY_SEEKER_GEMINI_GATEWAY_URL")?;
     let mut config = CloudflareVertexGemini2Config::new(endpoint, token);
-    if let Ok(dimensions) = env::var("GEMINI_EMBEDDING_DIMENSIONS") {
+    if let Ok(dimensions) = env::var("COTH_HAY_SEEKER_GEMINI_EMBEDDING_DIMENSIONS") {
         config = config.with_dimensions(dimensions.parse()?);
     }
-    if let Ok(concurrency) = env::var("GEMINI_EMBEDDING_CONCURRENCY") {
+    if let Ok(concurrency) = env::var("COTH_HAY_SEEKER_GEMINI_EMBEDDING_CONCURRENCY") {
         config = config.with_max_concurrency(concurrency.parse()?);
     }
     Ok(CloudflareVertexGemini2::new(config)?)

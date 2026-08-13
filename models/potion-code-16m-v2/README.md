@@ -12,7 +12,7 @@ Loading is offline and checksum-verified. By default Hay provisions this bundle
 into a per-user cache on first use; see
 [Automatic model provisioning](../../README.md#automatic-model-provisioning).
 The rest of this document describes staging the bundle by hand, which
-`HAY_LOCAL_STATIC_MODEL_DIR` selects and which disables provisioning entirely.
+`COTH_HAY_SEEKER_LOCAL_STATIC_MODEL_DIR` selects and which disables provisioning entirely.
 
 Create a private bundle directory containing the three unmodified upstream
 artifacts plus the checked-in manifest template:
@@ -30,7 +30,7 @@ unknown-token ID, 16,384-token ceiling, F16 tensor shape, and inference profile
 before opening the index. It rejects symlinks that escape the bundle.
 
 ```bash
-export HAY_LOCAL_STATIC_MODEL_DIR=/absolute/path/to/potion-code-16m-v2
+export COTH_HAY_SEEKER_LOCAL_STATIC_MODEL_DIR=/absolute/path/to/potion-code-16m-v2
 cargo run -p hay-cli -- index --backend duckdb --embeddings local-static \
   --database .hay-seeker/code.duckdb --repository /path/to/repository
 cargo run -p hay-cli -- search --backend duckdb --embeddings local-static \

@@ -912,9 +912,9 @@ fn elasticsearch(
     embedder: Option<Arc<dyn Embedder>>,
 ) -> Result<ElasticsearchIndex> {
     let mut config = ElasticsearchConfig::new(endpoint, index_alias);
-    if let Ok(api_key) = std::env::var("ELASTICSEARCH_API_KEY") {
+    if let Ok(api_key) = std::env::var("COTH_HAY_SEEKER_ELASTICSEARCH_API_KEY") {
         config = config.with_api_key(api_key);
-    } else if let Ok(token) = std::env::var("ELASTICSEARCH_BEARER_TOKEN") {
+    } else if let Ok(token) = std::env::var("COTH_HAY_SEEKER_ELASTICSEARCH_BEARER_TOKEN") {
         config = config.with_bearer_token(token);
     }
     Ok(ElasticsearchIndex::new(config, manifest, embedder)?)

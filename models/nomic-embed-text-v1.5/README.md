@@ -8,7 +8,7 @@ The checked-in manifest pins the official `nomic-ai/nomic-embed-text-v1.5`
 revision `1ef9b3e52d22d5957a7ca765fd83c68c3bffa91b`, its published quantized ONNX
 graph, tokenizer, and both SHA-256 digests. Download those two files from that
 exact revision, copy `bundle.example.json` to `bundle.json`, and set
-`HAY_LOCAL_MODEL_DIR` to the bundle directory.
+`COTH_HAY_SEEKER_LOCAL_MODEL_DIR` to the bundle directory.
 
 The adapter implements the model card's retrieval contract exactly:
 
@@ -33,6 +33,6 @@ checksum-pinned graph and tokenizer.
 Validate the bundle and measure local query latency:
 
 ```bash
-HAY_LOCAL_MODEL_DIR=/absolute/path/to/nomic-bundle \
+COTH_HAY_SEEKER_LOCAL_MODEL_DIR=/absolute/path/to/nomic-bundle \
   cargo run --release -p cast-embeddings --example local_onnx_smoke
 ```

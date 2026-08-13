@@ -46,7 +46,7 @@ The default DuckDB and static-embedding path needs no credentials and no
 service. It does provision the pinned Potion Code 16M v2 bundle over the
 network on first use; every artifact is checked against a pinned length and
 SHA-256 before it is used, and `COTH_HAY_SEEKER_DOWNLOAD_MODELS=false` plus a
-staged `HAY_LOCAL_STATIC_MODEL_DIR` restores a fully air-gapped run. Once a
+staged `COTH_HAY_SEEKER_LOCAL_STATIC_MODEL_DIR` restores a fully air-gapped run. Once a
 bundle is present, indexing and search are offline. Hosted providers and
 Elasticsearch are opt-in and read credentials from an ignored local `.env`; see
 [.env.example](./.env.example). Tests that need a hosted provider or a
@@ -89,6 +89,14 @@ Snapshot regeneration is refused in CI.
   stated in the pull request.
 - Shared dependencies and metadata live in `[workspace.dependencies]` and
   `[workspace.package]`; member crates inherit with `<dep>.workspace = true`.
+- Every environment variable this code reads carries the `COTH_HAY_SEEKER_`
+  prefix, with no exceptions and no fallback to the bare name — not for provider
+  credentials, endpoints, model revisions, or bundle directories, even where the
+  provider documents a bare name. An unprefixed variable can be supplied by an
+  unrelated project's `.env` or the developer's shell, and the run would then use
+  someone else's credential or endpoint while appearing to succeed. New settings
+  also go in `.env.example` and in `ISOLATED_ENV_VARS`
+  (`crates/hay-cli/tests/env_config.rs`) so tests cannot inherit a local value.
 - Nothing prompts an automated caller. A question requires both standard input
   and standard error to be terminals, and any CI variable withdraws it
   (`crates/hay-cli/src/interaction.rs`). Standard output carries result JSON and

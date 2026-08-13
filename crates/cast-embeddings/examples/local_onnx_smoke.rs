@@ -24,8 +24,8 @@ struct SmokeResult {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
-    let bundle_dir = std::env::var("HAY_LOCAL_MODEL_DIR")?;
-    let stored_dimensions = std::env::var("HAY_LOCAL_STORED_DIMENSIONS")
+    let bundle_dir = std::env::var("COTH_HAY_SEEKER_LOCAL_MODEL_DIR")?;
+    let stored_dimensions = std::env::var("COTH_HAY_SEEKER_LOCAL_STORED_DIMENSIONS")
         .ok()
         .map(|value| value.parse())
         .transpose()?
