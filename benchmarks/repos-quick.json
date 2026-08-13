@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "repositories": [
+    {
+      "id": "ollama",
+      "url": "https://github.com/ollama/ollama.git",
+      "revision": "144893850fa778c8c81ff931f26614d62e6689c1",
+      "directory": "ollama"
+    }
+  ]
+}

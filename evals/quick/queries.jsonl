@@ -1,0 +1,52 @@
+{"query": "Where are Ollama HTTP routes and handlers registered?", "graded_doc_ids": {"ollama:server/routes.go": 3}}
+{"query": "How does Ollama represent and load a model on the server?", "graded_doc_ids": {"ollama:server/model.go": 3}}
+{"query": "Where does Ollama launch and communicate with an LLM runner server?", "graded_doc_ids": {"ollama:llm/server.go": 3}}
+{"query": "Which Ollama types define generate chat and embedding API requests?", "graded_doc_ids": {"ollama:api/types.go": 3}}
+{"query": "Where are Ollama command-line commands and flags assembled?", "graded_doc_ids": {"ollama:cmd/cmd.go": 3}}
+{"query": "How does Ollama discover available GPU hardware and memory?", "graded_doc_ids": {"ollama:discover/gpu.go": 3}}
+{"query": "Where does Ollama schedule model runners and unload idle models?", "graded_doc_ids": {"ollama:server/sched.go": 3}}
+{"query": "How does Ollama create copy and delete model manifests?", "graded_doc_ids": {"ollama:server/images.go": 3}}
+{"query": "Where does Ollama convert external model formats?", "graded_doc_ids": {"ollama:convert/convert.go": 3}}
+{"query": "How does Ollama handle generate and chat API endpoints?", "graded_doc_ids": {"ollama:server/routes.go": 3, "ollama:api/types.go": 1}}
+{"query": "How does Ollama resume an interrupted model download?", "graded_doc_ids": {"ollama:server/download.go": 3, "ollama:x/transfer/upload.go": 1}}
+{"query": "Where are blob uploads split into parts and retried?", "graded_doc_ids": {"ollama:server/upload.go": 3, "ollama:server/download.go": 1}}
+{"query": "How is upload concurrency limited when pushing a model?", "graded_doc_ids": {"ollama:server/upload.go": 3}}
+{"query": "Where does Ollama sign API requests with the local key pair?", "graded_doc_ids": {"ollama:auth/auth.go": 3}}
+{"query": "How is a registry auth challenge answered and the token refreshed?", "graded_doc_ids": {"ollama:x/transfer/upload.go": 3, "ollama:auth/auth.go": 2}}
+{"query": "Where are chat messages turned into a model prompt with images?", "graded_doc_ids": {"ollama:server/prompt.go": 3, "ollama:template/template.go": 2}}
+{"query": "How are prompt templates parsed and their variables discovered?", "graded_doc_ids": {"ollama:template/template.go": 3, "ollama:server/prompt.go": 1}}
+{"query": "Where is the GGUF file header and tensor metadata decoded?", "graded_doc_ids": {"ollama:fs/ggml/gguf.go": 3, "ollama:fs/ggml/ggml.go": 2}}
+{"query": "How does Ollama decide which layers go on which GPU?", "graded_doc_ids": {"ollama:ml/device.go": 3, "ollama:discover/gpu.go": 2, "ollama:server/sched.go": 1}}
+{"query": "Where is total and free VRAM per accelerator detected?", "graded_doc_ids": {"ollama:discover/gpu.go": 3, "ollama:ml/device.go": 1}}
+{"query": "How does Ollama decide to evict a loaded model to fit another?", "graded_doc_ids": {"ollama:server/sched.go": 3, "ollama:ml/device.go": 1}}
+{"query": "Where is the OLLAMA_HOST environment variable read?", "graded_doc_ids": {"ollama:envconfig/config.go": 3}}
+{"query": "How are byte counts formatted for human readable output?", "graded_doc_ids": {"ollama:format/bytes.go": 3}}
+{"query": "Where does the CLI draw download progress bars without flickering?", "graded_doc_ids": {"ollama:progress/progress.go": 3}}
+{"query": "How is interactive line editing and history handled in the terminal?", "graded_doc_ids": {"ollama:readline/readline.go": 3}}
+{"query": "Where is a Modelfile parsed into commands?", "graded_doc_ids": {"ollama:parser/parser.go": 3, "ollama:server/create.go": 2}}
+{"query": "How is a model name split into host namespace and tag?", "graded_doc_ids": {"ollama:types/model/name.go": 3}}
+{"query": "Where are model digests validated?", "graded_doc_ids": {"ollama:types/model/name.go": 3, "ollama:server/images.go": 1}}
+{"query": "How does Ollama translate OpenAI chat completion requests?", "graded_doc_ids": {"ollama:openai/openai.go": 3, "ollama:middleware/anthropic.go": 1}}
+{"query": "Where is the OpenAI responses API implemented?", "graded_doc_ids": {"ollama:openai/responses.go": 3, "ollama:openai/openai.go": 2}}
+{"query": "How are Anthropic style responses streamed back to the client?", "graded_doc_ids": {"ollama:middleware/anthropic.go": 3, "ollama:anthropic/anthropic.go": 2}}
+{"query": "Where does Ollama expose Anthropic message compatibility?", "graded_doc_ids": {"ollama:anthropic/anthropic.go": 3, "ollama:middleware/anthropic.go": 2}}
+{"query": "How is a safetensors checkpoint turned into GGUF?", "graded_doc_ids": {"ollama:convert/convert.go": 3, "ollama:fs/ggml/gguf.go": 1}}
+{"query": "Where is quantization invoked with an external binary?", "graded_doc_ids": {"ollama:server/quantization.go": 3}}
+{"query": "How does Ollama report quantization progress while it runs?", "graded_doc_ids": {"ollama:server/quantization.go": 3, "ollama:progress/progress.go": 1}}
+{"query": "Where are model capabilities such as vision or tools determined?", "graded_doc_ids": {"ollama:server/images.go": 3, "ollama:api/types.go": 1}}
+{"query": "How does the server cache the list of local models?", "graded_doc_ids": {"ollama:server/model_list_cache.go": 3, "ollama:server/routes.go": 1}}
+{"query": "Where is a new model created from uploaded files?", "graded_doc_ids": {"ollama:server/create.go": 3, "ollama:server/images.go": 2}}
+{"query": "How is the llama runner process started with its arguments?", "graded_doc_ids": {"ollama:llm/llama_server.go": 3, "ollama:llm/server.go": 2}}
+{"query": "Where does the runner health check and wait for readiness?", "graded_doc_ids": {"ollama:llm/llama_server.go": 3, "ollama:server/sched.go": 1}}
+{"query": "How are chat turns rendered in the terminal interface?", "graded_doc_ids": {"ollama:cmd/tui/chat/render.go": 3, "ollama:cmd/tui/chat/chat.go": 2}}
+{"query": "Where is multi line input captured in the chat TUI?", "graded_doc_ids": {"ollama:cmd/tui/chat/input.go": 3, "ollama:cmd/tui/chat/chat.go": 1}}
+{"query": "How does the picker let a user choose among models?", "graded_doc_ids": {"ollama:cmd/tui/selector.go": 3}}
+{"query": "Where is an agent session with tool calls maintained?", "graded_doc_ids": {"ollama:agent/session.go": 3, "ollama:agent/skills.go": 2}}
+{"query": "How are agent skills discovered and described?", "graded_doc_ids": {"ollama:agent/skills.go": 3, "ollama:agent/session.go": 1}}
+{"query": "Where does the desktop app persist its local state?", "graded_doc_ids": {"ollama:app/store/database.go": 3}}
+{"query": "How is a browser tool exposed to the model?", "graded_doc_ids": {"ollama:app/tools/browser.go": 3, "ollama:agent/skills.go": 1}}
+{"query": "Where is a third party coding agent launched and configured?", "graded_doc_ids": {"ollama:cmd/launch/launch.go": 3, "ollama:cmd/launch/codex.go": 2}}
+{"query": "How does Ollama build the Gemma prompt format?", "graded_doc_ids": {"ollama:model/renderers/gemma4.go": 3, "ollama:model/parsers/gemma4.go": 2}}
+{"query": "Where is model output parsed back into tool calls?", "graded_doc_ids": {"ollama:model/parsers/gemma4.go": 3, "ollama:agent/session.go": 1}}
+{"query": "How is a sentencepiece tokenizer model read during conversion?", "graded_doc_ids": {"ollama:convert/sentencepiece/sentencepiece_model.pb.go": 3, "ollama:convert/convert.go": 1}}
+{"query": "Where does the scheduler decide how many parallel requests a runner accepts?", "graded_doc_ids": {"ollama:server/sched.go": 3, "ollama:llm/llama_server.go": 1}}
